@@ -1,0 +1,12 @@
+function(fgl_enable_sanitizers target)
+  if(NOT FGL_ENABLE_SANITIZERS)
+    return()
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT WIN32)
+    target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+  else()
+    message(WARNING "Sanitizers were requested but are not configured for this compiler/platform")
+  endif()
+endfunction()

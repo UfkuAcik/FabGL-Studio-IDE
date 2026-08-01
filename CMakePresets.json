@@ -1,0 +1,78 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Developer Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "FGL_BUILD_TESTS": "ON",
+        "FGL_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Portable Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FGL_BUILD_TESTS": "ON",
+        "FGL_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "core-only",
+      "displayName": "Core and tests only",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/build/core-only",
+      "cacheVariables": {
+        "FGL_BUILD_STUDIO": "OFF",
+        "FGL_BUILD_PLAYER": "OFF",
+        "FGL_BUILD_TOOLS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "core-only",
+      "configurePreset": "core-only"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "core-only",
+      "configurePreset": "core-only",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    }
+  ]
+}
