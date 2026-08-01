@@ -1,0 +1,13 @@
+FabGL Studio
+Copyright (C) 2026 FabGL Studio contributors
+Licensed under GPL-3.0-or-later. See LICENSE.
+
+FabGL runtime integration uses the Olimex fork of FabGL, created by Fabrizio Di Vittorio and
+modified/distributed by Olimex, under GPL-3.0-or-later. See THIRD_PARTY_LICENSES.md for the
+exact pinned commit and source location.
+
+ESP32 firmware is built with Espressif Arduino-ESP32 and its bundled components. Desktop
+packages may dynamically use Qt 6 Core, Gui, and Widgets. Managed/offline toolchain packages
+must reproduce the license and notice files shipped by their upstream archives.
+
+No telemetry or project-data transmission is enabled by default.

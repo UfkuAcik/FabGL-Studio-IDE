@@ -1,0 +1,58 @@
+# CMake and native build output
+/build/
+/out/
+/dist/
+/install/
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Testing/
+cmake_install.cmake
+compile_commands.json
+*.ninja
+.ninja_deps
+.ninja_log
+
+# IDE and editor-local state
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.VC.db
+*.code-workspace
+
+# Compiled objects and binaries
+*.obj
+*.o
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+
+# FabGL Studio generated state
+.fabglstudio/
+Library/
+Temp/
+Logs/
+Build/
+*.fglbackup
+*.autosave
+
+# Managed toolchains and download cache (bootstrapped, never committed)
+/.toolchains/
+/.downloads/
+
+# Python helpers
+__pycache__/
+*.py[cod]
+.venv/
+
+# Platform noise
+.DS_Store
+Thumbs.db
+desktop.ini
