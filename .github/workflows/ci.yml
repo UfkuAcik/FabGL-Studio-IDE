@@ -1,0 +1,194 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: "2"
+  CTEST_OUTPUT_ON_FAILURE: "1"
+
+jobs:
+  repository-quality:
+    name: documentation and formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install formatting tool
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang-format
+          clang-format --version
+
+      - name: Check required documentation
+        run: cmake -P scripts/check_required_docs.cmake
+
+      - name: Check clean source-tree policy
+        run: cmake -P scripts/check_source_tree.cmake
+
+      - name: Check C and C++ formatting
+        shell: bash
+        run: >-
+          cmake
+          -DCLANG_FORMAT_EXECUTABLE="$(command -v clang-format)"
+          -P scripts/check_format.cmake
+
+  full-build:
+    name: full build and test (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: linux-gcc-qt6
+          - os: windows-2022
+            label: windows-msvc2022-qt6
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Linux build dependencies and Qt 6
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ninja-build qt6-base-dev
+          qmake6 -query QT_VERSION
+
+      - name: Install Windows Qt 6.8.3
+        if: runner.os == 'Windows'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: "6.8.3"
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          archives: qtbase
+          cache: true
+          cache-key-prefix: fabgl-studio-qt-6.8.3-msvc2022
+
+      - name: Configure full Linux build
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S . -B out/ci/full -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFGL_BUILD_STUDIO=ON \
+            -DFGL_BUILD_PLAYER=ON \
+            -DFGL_BUILD_TOOLS=ON \
+            -DFGL_BUILD_TESTS=ON \
+            -DFGL_BUILD_EXAMPLES=ON \
+            -DFGL_WARNINGS_AS_ERRORS=ON \
+            -DFGL_PACKAGE_NSIS=OFF
+
+      - name: Configure full Windows build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake -S . -B out/ci/full `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" `
+            -DFGL_BUILD_STUDIO=ON `
+            -DFGL_BUILD_PLAYER=ON `
+            -DFGL_BUILD_TOOLS=ON `
+            -DFGL_BUILD_TESTS=ON `
+            -DFGL_BUILD_EXAMPLES=ON `
+            -DFGL_WARNINGS_AS_ERRORS=ON `
+            -DFGL_PACKAGE_NSIS=OFF
+
+      - name: Require and build the Qt Studio target
+        run: cmake --build out/ci/full --config Release --target fabgl_studio --parallel 2
+
+      - name: Build every configured target
+        run: cmake --build out/ci/full --config Release --parallel 2
+
+      - name: Run the full test suite
+        run: ctest --test-dir out/ci/full -C Release --output-on-failure
+
+      - name: Create portable Windows ZIP
+        if: runner.os == 'Windows'
+        run: cmake --build out/ci/full --config Release --target package --parallel 2
+
+      - name: Verify portable Windows ZIP
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake
+          "-DPACKAGE_DIRECTORY=$((Resolve-Path 'out/ci/full').Path)"
+          -P scripts/check_portable_package.cmake
+
+      - name: Upload portable Windows ZIP and checksum
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fabgl-studio-windows-portable
+          path: |
+            out/ci/full/FabGL-Studio-*.zip
+            out/ci/full/FabGL-Studio-*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  clang-tidy:
+    name: clang build and static analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Clang tooling
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang clang-tidy ninja-build
+          clang++ --version
+          clang-tidy --version
+
+      - name: Configure Clang analysis build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S . -B out/ci/clang-tidy -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DFGL_BUILD_STUDIO=OFF \
+            -DFGL_BUILD_PLAYER=ON \
+            -DFGL_BUILD_TOOLS=ON \
+            -DFGL_BUILD_TESTS=ON \
+            -DFGL_BUILD_EXAMPLES=ON \
+            -DFGL_WARNINGS_AS_ERRORS=OFF \
+            -DFGL_PACKAGE_NSIS=OFF
+
+      - name: Build with Clang
+        run: cmake --build out/ci/clang-tidy --parallel 2
+
+      - name: Run clang-tidy
+        shell: bash
+        run: >-
+          cmake
+          -DBUILD_DIR="${{ github.workspace }}/out/ci/clang-tidy"
+          -DCLANG_TIDY_EXECUTABLE="$(command -v clang-tidy)"
+          -P scripts/check_clang_tidy.cmake

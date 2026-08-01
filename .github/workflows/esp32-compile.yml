@@ -1,0 +1,77 @@
+name: esp32-compile
+
+on:
+  workflow_dispatch:
+    inputs:
+      compile_locked_firmware:
+        description: Download the locked toolchain and compile firmware without upload or flash
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esp32-compile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compile:
+    name: locked ESP32 compile (never uploads)
+    if: inputs.compile_locked_firmware
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Restore verified toolchain cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            .downloads/toolchains
+            .toolchains
+          key: esp32-windows-${{ hashFiles('toolchains/manifest.json') }}
+
+      - name: Bootstrap locked repository-local toolchain
+        shell: pwsh
+        run: ./scripts/bootstrap_toolchain.ps1
+
+      - name: Compile firmware without upload
+        shell: pwsh
+        run: ./scripts/build_esp32.ps1 -Clean
+
+      - name: Verify compile safety contract
+        shell: pwsh
+        run: |
+          $resultPath = 'out/esp32/build-result.json'
+          if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
+            throw "ESP32 compile result is missing: $resultPath"
+          }
+          $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+          if (-not $result.success) {
+            throw 'ESP32 compile did not report success.'
+          }
+          if ($result.uploadPerformed) {
+            throw 'Safety contract violated: the compile reported a hardware upload.'
+          }
+          if (-not (Test-Path -LiteralPath $result.binary -PathType Leaf)) {
+            throw "Compiled firmware binary is missing: $($result.binary)"
+          }
+          $actualHash = (Get-FileHash -LiteralPath $result.binary -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $result.binarySha256) {
+            throw 'Compiled firmware SHA-256 does not match build-result.json.'
+          }
+          Write-Host "Verified compile-only firmware artifact: $($result.binarySha256)"
+
+      - name: Upload compile-only firmware artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: esp32-compile-only
+          path: |
+            out/esp32/bin/**
+            out/esp32/build-result.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

@@ -14,6 +14,9 @@ This repository is under active milestone development. Every completed milestone
 truthful report under `docs/progress/`; hardware behavior is marked unverified until it has
 actually run on a board.
 
+The consolidated evidence, artifact hashes, and known limits are in
+[`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md).
+
 The standard host workflow is:
 
 ```powershell

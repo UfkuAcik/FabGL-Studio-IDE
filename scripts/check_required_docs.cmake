@@ -29,6 +29,7 @@ set(required_docs
   docs/ASSUMPTIONS.md
   docs/LICENSING.md
   docs/RISKS.md
+  docs/FINAL_REPORT.md
   docs/progress/README.md
   docs/progress/M00-discovery.md
   docs/progress/M01-editor-shell.md
