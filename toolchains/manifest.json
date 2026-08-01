@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "profile": {
+    "id": "olimex-esp32-sbc-fabgl-revb",
+    "displayName": "Olimex ESP32-SBC-FabGL Rev B",
+    "hardwareSource": "https://github.com/OLIMEX/ESP32-SBC-FabGL/blob/main/HARDWARE/Hardware-revision-B/ESP32-SBC-FabGL_Rev_B.pdf",
+    "hardwareLicense": "CERN-OHL-1.2",
+    "arduinoCore": {
+      "package": "esp32:esp32",
+      "version": "2.0.11",
+      "commit": "ae9dae4a6c063d95786d95b6770b70693e132a7d"
+    },
+    "fabgl": {
+      "version": "1.0.9",
+      "distributionVersion": "1.0.9+olimex.04f328a",
+      "commit": "04f328a10573297dd554f13be7f369cdee0f7a2b"
+    },
+    "fqbn": "esp32:esp32:esp32:UploadSpeed=921600,CPUFreq=240,FlashFreq=40,FlashMode=dio,FlashSize=4M,PartitionScheme=huge_app,DebugLevel=none,PSRAM=disabled",
+    "compiler": {
+      "warnings": "default",
+      "cppExtraFlags": "-Wno-error=narrowing",
+      "reason": "The locked Olimex FabGL commit contains C++11 list-initialization narrowing in optional CH32V003 drivers; retain the exact vendor source while demoting only that diagnostic from error to warning."
+    },
+    "boardOptions": {
+      "board": "ESP32 Dev Module",
+      "UploadSpeed": "921600",
+      "CPUFreq": "240",
+      "FlashFreq": "40",
+      "FlashMode": "dio",
+      "FlashSize": "4M",
+      "PartitionScheme": "huge_app",
+      "DebugLevel": "none",
+      "PSRAM": "disabled"
+    },
+    "upload": {
+      "automatic": false,
+      "defaultSpeed": 921600,
+      "fallbackSpeed": 115200,
+      "requiresExplicitBoardIdentity": true
+    }
+  },
+  "pins": {
+    "vga": {
+      "r1": 22,
+      "r0": 21,
+      "g1": 19,
+      "g0": 18,
+      "b1": 5,
+      "b0": 4,
+      "hsync": 23,
+      "vsync": 15
+    },
+    "ps2Keyboard": {
+      "data": 32,
+      "clock": 33
+    },
+    "ps2Mouse": {
+      "data": 27,
+      "clock": 26
+    },
+    "audio": {
+      "dac": 25
+    },
+    "sd": {
+      "bus": "HSPI",
+      "miso": 35,
+      "mosi": 12,
+      "clock": 14,
+      "chipSelect": 13
+    },
+    "usbSerial": {
+      "bridge": "CH340X",
+      "rx": 3,
+      "tx": 1
+    },
+    "accessBus": {
+      "tx2": 2,
+      "rx": 34,
+      "rts": 0,
+      "cts": 39
+    }
+  },
+  "artifacts": [
+    {
+      "id": "arduino-cli-windows-x86_64",
+      "version": "1.5.1",
+      "commit": "01f3d4f2ba7c2eaafb5dc710c8a1903af7762fea",
+      "url": "https://github.com/arduino/arduino-cli/releases/download/v1.5.1/arduino-cli_1.5.1_Windows_64bit.zip",
+      "fileName": "arduino-cli_1.5.1_Windows_64bit.zip",
+      "size": 17965819,
+      "sha256": "fabe42e0eb04d00e776a66178299ff95a46c623dbc260f997e58fd514853dd40",
+      "license": "GPL-3.0-only",
+      "sourceUrl": "https://github.com/arduino/arduino-cli/tree/01f3d4f2ba7c2eaafb5dc710c8a1903af7762fea",
+      "platform": "windows-x86_64",
+      "installDirectory": "arduino-cli/1.5.1",
+      "stripSingleRoot": false
+    },
+    {
+      "id": "arduino-esp32-source",
+      "version": "2.0.11",
+      "commit": "ae9dae4a6c063d95786d95b6770b70693e132a7d",
+      "url": "https://github.com/espressif/arduino-esp32/releases/download/2.0.11/esp32-2.0.11.zip",
+      "fileName": "esp32-2.0.11.zip",
+      "size": 250401265,
+      "sha256": "d15386308dc72f94816ce80b5508af999f2fd0d88eb5e1ffba48316ab0b9c5d6",
+      "license": "LGPL-2.1-or-later",
+      "licenseScope": "Main Arduino core; the release archive contains components under additional licenses.",
+      "sourceUrl": "https://github.com/espressif/arduino-esp32/tree/ae9dae4a6c063d95786d95b6770b70693e132a7d",
+      "platform": "all",
+      "installDirectory": "sources/arduino-esp32/2.0.11",
+      "stripSingleRoot": true
+    },
+    {
+      "id": "olimex-fabgl-source",
+      "version": "1.0.9+olimex.04f328a",
+      "commit": "04f328a10573297dd554f13be7f369cdee0f7a2b",
+      "url": "https://github.com/OLIMEX/FabGL/archive/04f328a10573297dd554f13be7f369cdee0f7a2b.zip",
+      "fileName": "FabGL-04f328a10573297dd554f13be7f369cdee0f7a2b.zip",
+      "size": 31716598,
+      "sha256": "142429cae7410295574d435222da1b322456e3907de3cf3fd0f555afa22b308d",
+      "checksumProvenance": "Measured from the GitHub-generated archive on 2026-08-01; mirror the exact archive for releases.",
+      "license": "GPL-3.0-or-later",
+      "sourceUrl": "https://github.com/OLIMEX/FabGL/tree/04f328a10573297dd554f13be7f369cdee0f7a2b",
+      "platform": "all",
+      "installDirectory": "libraries/FabGL/1.0.9+olimex.04f328a",
+      "stripSingleRoot": true
+    }
+  ],
+  "boardManager": {
+    "indexUrl": "https://espressif.github.io/arduino-esp32/package_esp32_index.json",
+    "package": "esp32:esp32@2.0.11",
+    "dependencies": [
+      "xtensa-esp32-elf-gcc@esp-2021r2-patch5-8.4.0",
+      "xtensa-esp32s2-elf-gcc@esp-2021r2-patch5-8.4.0",
+      "xtensa-esp32s3-elf-gcc@esp-2021r2-patch5-8.4.0",
+      "xtensa-esp-elf-gdb@11.2_20220823",
+      "riscv32-esp-elf-gcc@esp-2021r2-patch5-8.4.0",
+      "riscv32-esp-elf-gdb@11.2_20220823",
+      "openocd-esp32@v0.11.0-esp32-20221026",
+      "esptool_py@4.5.1",
+      "mkspiffs@0.2.3",
+      "mklittlefs@3.0.0-gnu12-dc7f933",
+      "dfu-util@0.11.0-arduino5"
+    ]
+  },
+  "storage": {
+    "minimumFreeBytes": 4294967296,
+    "boardManagerMinimumFreeBytes": 8589934592,
+    "cacheDirectory": ".downloads/toolchains",
+    "installDirectory": ".toolchains"
+  }
+}

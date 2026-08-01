@@ -1,0 +1,31 @@
+fglscene 1
+scene_guid 20000000-0000-4000-8000-000000000008
+scene_name "Audio Showcase"
+entity_begin
+guid 30000000-0000-4000-8000-000000000008
+name "AudioListener"
+active 1
+parent nil
+position 0 0 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000018
+name "MusicSource"
+active 1
+parent nil
+position -1 0 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000028
+name "SfxSource"
+active 1
+parent nil
+position 1 0 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+scene_end

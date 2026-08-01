@@ -1,0 +1,17 @@
+add_library(fabgl_project_model STATIC project_format.cpp script_generator.cpp)
+target_include_directories(fabgl_project_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_libraries(fabgl_project_model PUBLIC fabgl_engine fabgl_asset_pipeline)
+target_compile_features(fabgl_project_model PUBLIC cxx_std_20)
+fgl_enable_warnings(fabgl_project_model)
+fgl_enable_sanitizers(fabgl_project_model)
+
+add_executable(fabgl_project_cli main.cpp)
+target_link_libraries(fabgl_project_cli PRIVATE fabgl_project_model)
+if(WIN32)
+  target_link_libraries(fabgl_project_cli PRIVATE shell32)
+endif()
+target_compile_features(fabgl_project_cli PRIVATE cxx_std_20)
+fgl_enable_warnings(fabgl_project_cli)
+fgl_enable_sanitizers(fabgl_project_cli)
+
+install(TARGETS fabgl_project_cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

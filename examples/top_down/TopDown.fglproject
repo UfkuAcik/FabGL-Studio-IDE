@@ -1,0 +1,10 @@
+{
+  "kind":"FabGLStudioProject","formatVersion":1,
+  "projectGuid":"10000000-0000-4000-8000-000000000003","name":"Top-Down Shooter Demo",
+  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"topdown",
+  "scene":{"entities":[
+    {"id":"30000000-0000-4000-8000-000000000003","name":"Player"},
+    {"id":"30000000-0000-4000-8000-000000000013","name":"EnemySpawner"},
+    {"id":"30000000-0000-4000-8000-000000000023","name":"Arena"}]},
+  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+}

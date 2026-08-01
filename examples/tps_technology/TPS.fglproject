@@ -1,0 +1,11 @@
+{
+  "kind":"FabGLStudioProject","formatVersion":1,
+  "projectGuid":"10000000-0000-4000-8000-000000000006","name":"TPS Technology Demo (Experimental)",
+  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"lowpoly",
+  "experimental":true,
+  "scene":{"entities":[
+    {"id":"30000000-0000-4000-8000-000000000006","name":"ThirdPersonPlayer"},
+    {"id":"30000000-0000-4000-8000-000000000016","name":"Target"},
+    {"id":"30000000-0000-4000-8000-000000000026","name":"LowPolyEnvironment"}]},
+  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+}

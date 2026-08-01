@@ -1,0 +1,10 @@
+{
+  "kind":"FabGLStudioProject","formatVersion":1,
+  "projectGuid":"10000000-0000-4000-8000-000000000004","name":"Raycast FPS Demo",
+  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"raycast",
+  "scene":{"entities":[
+    {"id":"30000000-0000-4000-8000-000000000004","name":"FirstPersonPlayer"},
+    {"id":"30000000-0000-4000-8000-000000000014","name":"RaycastMap"},
+    {"id":"30000000-0000-4000-8000-000000000024","name":"Enemy"}]},
+  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+}

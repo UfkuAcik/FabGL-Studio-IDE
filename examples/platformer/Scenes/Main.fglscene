@@ -1,0 +1,31 @@
+fglscene 1
+scene_guid 20000000-0000-4000-8000-000000000002
+scene_name "Platformer Main"
+entity_begin
+guid 30000000-0000-4000-8000-000000000002
+name "Player"
+active 1
+parent nil
+position 32 80 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000012
+name "Platforms"
+active 1
+parent nil
+position 0 144 0
+rotation 0 0 0
+scale 40 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000022
+name "Camera"
+active 1
+parent nil
+position 160 90 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+scene_end

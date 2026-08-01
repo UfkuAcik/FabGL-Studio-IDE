@@ -1,0 +1,10 @@
+{
+  "kind":"FabGLStudioProject","formatVersion":1,
+  "projectGuid":"10000000-0000-4000-8000-000000000008","name":"Audio Showcase",
+  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"audio",
+  "scene":{"entities":[
+    {"id":"30000000-0000-4000-8000-000000000008","name":"AudioListener"},
+    {"id":"30000000-0000-4000-8000-000000000018","name":"MusicSource"},
+    {"id":"30000000-0000-4000-8000-000000000028","name":"SfxSource"}]},
+  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+}

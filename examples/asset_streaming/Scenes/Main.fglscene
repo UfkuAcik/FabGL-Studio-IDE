@@ -1,0 +1,22 @@
+fglscene 1
+scene_guid 20000000-0000-4000-8000-000000000010
+scene_name "Asset Streaming Showcase"
+entity_begin
+guid 30000000-0000-4000-8000-000000000010
+name "StreamingManager"
+active 1
+parent nil
+position 0 0 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000020
+name "ChunkViewport"
+active 1
+parent nil
+position 160 90 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+scene_end

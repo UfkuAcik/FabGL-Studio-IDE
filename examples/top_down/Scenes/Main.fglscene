@@ -1,0 +1,31 @@
+fglscene 1
+scene_guid 20000000-0000-4000-8000-000000000003
+scene_name "Top Down Arena"
+entity_begin
+guid 30000000-0000-4000-8000-000000000003
+name "Player"
+active 1
+parent nil
+position 160 90 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000013
+name "EnemySpawner"
+active 1
+parent nil
+position 250 60 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000023
+name "Arena"
+active 1
+parent nil
+position 0 0 0
+rotation 0 0 0
+scale 1 1 1
+entity_end
+scene_end

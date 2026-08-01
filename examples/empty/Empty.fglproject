@@ -1,0 +1,11 @@
+{
+  "kind": "FabGLStudioProject",
+  "formatVersion": 1,
+  "projectGuid": "10000000-0000-4000-8000-000000000001",
+  "name": "Empty Project",
+  "projectRoot": ".",
+  "startupScene": "Scenes/Main.fglscene",
+  "previewDemo": "empty",
+  "scene": { "entities": [{"id":"30000000-0000-4000-8000-000000000001","name":"Camera"}] },
+  "build": {"program":"cmake","arguments":["--build","out/build/dev"]}
+}

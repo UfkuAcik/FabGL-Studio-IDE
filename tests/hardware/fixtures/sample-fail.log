@@ -1,0 +1,13 @@
+# Synthetic negative parser fixture. This is not hardware evidence.
+FABGLSTUDIO|1|BOOT|firmware|profile=olimex-esp32-sbc-fabgl-revb;version=0.1.0-smoke;core=2.0.11
+FABGLSTUDIO|1|PASS|serial|baud=115200;format=pipe-v1
+FABGLSTUDIO|1|PASS|vga_init|mode=320x200@75Hz;pins=22,21,19,18,5,4,23,15;visual=manual
+FABGLSTUDIO|1|PASS|renderer_2d|color-bars=8;checkerboard=8px;sprite=animated;visual=manual
+FABGLSTUDIO|1|PASS|keyboard_detect|data=32;clock=33;press-key-for-event
+FABGLSTUDIO|1|PASS|mouse_detect|data=27;clock=26;move-mouse-for-event
+FABGLSTUDIO|1|PASS|audio_pipeline|gpio=25;method=dac;tone=440Hz;duration=300ms;audible=manual
+FABGLSTUDIO|1|FAIL|sd_mount|bus=HSPI;miso=35;mosi=12;clock=14;cs=13;reason=no-card-or-mount-failed
+FABGLSTUDIO|1|PASS|psram_profile|profile=disabled;official-reference-setting=true
+FABGLSTUDIO|1|PASS|memory|heapSize=327680;free=245000;minimumFree=241000;largestBlock=110000;dmaFree=180000
+FABGLSTUDIO|1|READY|diagnostics|interactive=true;upload-command=absent;sd-write=false
+FABGLSTUDIO|1|METRIC|runtime|fps=74.91;heapFree=244920;heapMinimum=240880;largestBlock=110000;dmaFree=179920;psramFree=0
