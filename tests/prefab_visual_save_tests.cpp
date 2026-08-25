@@ -4,12 +4,26 @@
 #include "fabgl/save/save_system.h"
 #include "fabgl/visual/visual_graph.h"
 
+#include <chrono>
+#include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 
 using namespace fabgl;
 
 namespace {
+
+namespace test_filesystem = std::filesystem;
+
+struct TemporaryDirectory final {
+    test_filesystem::path path;
+
+    ~TemporaryDirectory() {
+        std::error_code ignored;
+        test_filesystem::remove_all(path, ignored);
+    }
+};
 
 PrefabComponentData componentData(std::string_view name) {
     PrefabComponentData component;
@@ -85,9 +99,9 @@ FGL_TEST(prefab_nested_resolution_and_instance_overrides_are_deterministic) {
     auto light = componentData("Light");
     const auto lightId = light.typeId;
 
-    PrefabAsset base{baseId, "Base", std::nullopt, {}};
+    PrefabAsset base{baseId, "Base", std::nullopt, {}, {}};
     base.components.emplace(healthId, health);
-    PrefabAsset derived{derivedId, "Derived", baseId, {}};
+    PrefabAsset derived{derivedId, "Derived", baseId, {}, {}};
     auto healthOverride = health;
     healthOverride.properties["current"] = std::int64_t{80};
     derived.components.emplace(healthId, healthOverride);
@@ -121,7 +135,7 @@ FGL_TEST(prefab_apply_revert_and_dependency_cycle_validation) {
     auto health = componentData("Health");
     const auto healthId = health.typeId;
     health.properties["current"] = std::int64_t{100};
-    PrefabAsset asset{id, "Apply", std::nullopt, {}};
+    PrefabAsset asset{id, "Apply", std::nullopt, {}, {}};
     asset.components.emplace(healthId, health);
     PrefabInstance instance(id);
     FGL_CHECK(instance.setPropertyOverride(healthId, "current", PropertyValue(std::int64_t{25})));
@@ -132,13 +146,13 @@ FGL_TEST(prefab_apply_revert_and_dependency_cycle_validation) {
     const auto firstId = AssetGuid::fromStableName("prefab.cycle.first");
     const auto secondId = AssetGuid::fromStableName("prefab.cycle.second");
     PrefabLibrary cycles;
-    FGL_CHECK(cycles.add({firstId, "First", secondId, {}}));
-    FGL_CHECK(cycles.add({secondId, "Second", firstId, {}}));
+    FGL_CHECK(cycles.add({firstId, "First", secondId, {}, {}}));
+    FGL_CHECK(cycles.add({secondId, "Second", firstId, {}, {}}));
     auto cycle = cycles.validateDependencies();
     FGL_CHECK(!cycle && cycle.error().code() == ErrorCode::CycleDetected);
 
     PrefabLibrary missing;
-    FGL_CHECK(missing.add({firstId, "First", secondId, {}}));
+    FGL_CHECK(missing.add({firstId, "First", secondId, {}, {}}));
     auto missingResult = missing.validateDependencies();
     FGL_CHECK(!missingResult && missingResult.error().code() == ErrorCode::NotFound);
 }
@@ -207,6 +221,112 @@ FGL_TEST(save_system_checksums_multiple_slots_and_binary_payloads) {
     FGL_CHECK(!corrupt && corrupt.error().code() == ErrorCode::InvalidFormat);
     FGL_CHECK(saves.remove("slot-2"));
     FGL_CHECK(!saves.load("slot-2"));
+}
+
+FGL_TEST(save_system_parses_portable_integer_headers_strictly) {
+    auto storage = std::make_shared<MemorySaveStorage>();
+    SaveSystem saves(storage, 1);
+    FGL_CHECK(saves.save("portable", "payload"));
+    const auto stored = storage->read("portable");
+    FGL_CHECK(stored);
+
+    const auto replaceField = [](std::string text, std::string_view from, std::string_view to) {
+        const auto position = text.find(from);
+        FGL_CHECK(position != std::string::npos);
+        text.replace(position, from.size(), to);
+        return text;
+    };
+
+    auto whitespace = replaceField(stored.value(), "schema 1\n", "schema \t1 \r\n");
+    whitespace = replaceField(std::move(whitespace), "checksum ", "checksum 0x");
+    FGL_CHECK(storage->writeAtomically("portable", std::move(whitespace)));
+    FGL_CHECK(saves.load("portable"));
+
+    auto negative = replaceField(stored.value(), "schema 1\n", "schema -1\n");
+    FGL_CHECK(storage->writeAtomically("portable", std::move(negative)));
+    FGL_CHECK(!saves.load("portable"));
+
+    auto trailing = replaceField(stored.value(), "size 7\n", "size 7bytes\n");
+    FGL_CHECK(storage->writeAtomically("portable", std::move(trailing)));
+    FGL_CHECK(!saves.load("portable"));
+
+    auto overflow = replaceField(stored.value(), "schema 1\n", "schema 18446744073709551616\n");
+    FGL_CHECK(storage->writeAtomically("portable", std::move(overflow)));
+    FGL_CHECK(!saves.load("portable"));
+}
+
+FGL_TEST(save_system_round_trips_canonical_typed_gameplay_state) {
+    SaveDocument document;
+    document.primitives.emplace("completed", true);
+    document.primitives.emplace("lives", std::int64_t{3});
+    document.primitives.emplace("difficulty", 1.25);
+    document.primitives.emplace("chapter", std::string("citadel"));
+    document.player.emplace("position2d", Vec2{12.5F, -3.0F});
+    document.player.emplace("position3d", Vec3{1.0F, 2.0F, 3.0F});
+    document.scene.emplace("door.open", true);
+    document.entities["enemy.guard.01"].emplace("health", std::int64_t{75});
+    document.entities["enemy.guard.01"].emplace("alert", 0.5);
+
+    const auto first = SaveSystem::serializeDocument(document);
+    const auto second = SaveSystem::serializeDocument(document);
+    FGL_CHECK(first && second && first.value() == second.value());
+    auto decoded = SaveSystem::deserializeDocument(first.value());
+    FGL_CHECK(decoded);
+    FGL_CHECK(std::get<bool>(decoded.value().primitives.at("completed")));
+    FGL_CHECK(std::get<std::int64_t>(decoded.value().primitives.at("lives")) == 3);
+    FGL_CHECK(std::get<std::string>(decoded.value().primitives.at("chapter")) == "citadel");
+    FGL_CHECK_NEAR(std::get<Vec2>(decoded.value().player.at("position2d")).x, 12.5F,
+                   0.0001F);
+    FGL_CHECK(std::get<std::int64_t>(
+                  decoded.value().entities.at("enemy.guard.01").at("health")) == 75);
+
+    auto storage = std::make_shared<MemorySaveStorage>();
+    SaveSystem versionOne(storage, 1U);
+    FGL_CHECK(versionOne.saveDocument("campaign", document));
+    SaveSystem versionTwo(storage, 2U);
+    FGL_CHECK(versionTwo.registerMigration(1U, [](std::string_view payload) {
+        return Result<std::string>::success(std::string(payload));
+    }));
+    auto loaded = versionTwo.loadDocument("campaign");
+    FGL_CHECK(loaded && loaded.value().migrated);
+    FGL_CHECK(loaded.value().storedSchemaVersion == 1U);
+    FGL_CHECK(std::get<bool>(loaded.value().document.scene.at("door.open")));
+
+    auto trailing = first.value() + "x";
+    FGL_CHECK(!SaveSystem::deserializeDocument(trailing));
+    document.primitives["invalid.number"] = std::numeric_limits<double>::infinity();
+    FGL_CHECK(!SaveSystem::serializeDocument(document));
+    document.primitives.erase("invalid.number");
+    document.primitives[std::string("bad\nkey")] = true;
+    FGL_CHECK(!SaveSystem::serializeDocument(document));
+}
+
+FGL_TEST(file_save_storage_persists_slots_atomically_and_rotates_backups) {
+    const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
+    TemporaryDirectory temporary{
+        test_filesystem::temp_directory_path() /
+        (std::string("fabgl-studio-save-tests-") + std::to_string(suffix))};
+    auto storage = std::make_shared<FileSaveStorage>(temporary.path.string(), 2U);
+    SaveSystem saves(storage, 1U);
+
+    FGL_CHECK(saves.save("campaign", "v1"));
+    FGL_CHECK(saves.save("campaign", "v2"));
+    FGL_CHECK(saves.save("campaign", "v3"));
+    FGL_CHECK(saves.slots() == std::vector<std::string>{"campaign"});
+    FGL_CHECK(saves.load("campaign").value().payload == "v3");
+
+    const auto newestBackup = storage->readBackup("campaign", 1U);
+    const auto oldestBackup = storage->readBackup("campaign", 2U);
+    FGL_CHECK(newestBackup && newestBackup.value().find("\n\nv2") != std::string::npos);
+    FGL_CHECK(oldestBackup && oldestBackup.value().find("\n\nv1") != std::string::npos);
+    FGL_CHECK(!storage->readBackup("campaign", 0U));
+    FGL_CHECK(!storage->writeAtomically("../unsafe", "bad"));
+
+    SaveSystem reopened(std::make_shared<FileSaveStorage>(temporary.path.string(), 2U), 1U);
+    FGL_CHECK(reopened.load("campaign").value().payload == "v3");
+    FGL_CHECK(reopened.remove("campaign"));
+    FGL_CHECK(reopened.slots().empty());
+    FGL_CHECK(!storage->readBackup("campaign", 1U));
 }
 
 FGL_TEST(save_system_applies_sequential_schema_migrations_and_reports_gaps) {

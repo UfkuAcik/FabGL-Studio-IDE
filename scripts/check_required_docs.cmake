@@ -27,9 +27,12 @@ set(required_docs
   LICENSE
   NOTICE
   docs/ASSUMPTIONS.md
+  docs/HANDOFF.md
+  docs/COMPLETION_AUDIT.md
   docs/LICENSING.md
   docs/RISKS.md
   docs/FINAL_REPORT.md
+  docs/images/studio-overview.png
   docs/progress/README.md
   docs/progress/M00-discovery.md
   docs/progress/M01-editor-shell.md
@@ -64,11 +67,64 @@ foreach(relative_path IN LISTS required_docs)
   endif()
 endforeach()
 
+set(studio_screenshot "${repository_root}/docs/images/studio-overview.png")
+if(EXISTS "${studio_screenshot}")
+  file(READ "${studio_screenshot}" studio_screenshot_signature LIMIT 8 HEX)
+  string(TOLOWER "${studio_screenshot_signature}" studio_screenshot_signature)
+  if(NOT studio_screenshot_signature STREQUAL "89504e470d0a1a0a")
+    list(APPEND empty "docs/images/studio-overview.png (not a PNG)")
+  endif()
+endif()
+
 file(GLOB decision_records RELATIVE "${repository_root}"
   "${repository_root}/docs/decisions/[0-9][0-9][0-9][0-9]-*.md")
 if(NOT decision_records)
   list(APPEND missing "docs/decisions/NNNN-*.md")
 endif()
+
+set(required_decision_records
+  docs/decisions/0001-portable-core-and-qt-editor.md
+  docs/decisions/0002-editor-friendly-ecs.md
+  docs/decisions/0003-versioned-source-and-binary-pack.md
+  docs/decisions/0004-toolchain-and-fabgl.md
+  docs/decisions/0005-gpl-project-license.md
+  docs/decisions/0009-source-extension-host-before-stable-binary-abi.md
+  docs/decisions/0010-software-presentation-backends-before-sdl.md
+  docs/decisions/0011-reflected-properties-with-explicit-codecs.md
+  docs/decisions/0012-stable-asset-guid-references.md
+  docs/decisions/0013-versioned-native-script-module-boundary.md
+  docs/decisions/0014-validated-visual-graph-bytecode.md
+  docs/decisions/0015-modular-renderers-over-a-bounded-framebuffer.md
+  docs/decisions/0016-shared-scene-runtime-with-platform-adapters.md
+  docs/decisions/0017-fixed-capacity-target-runtime-memory.md
+  docs/decisions/0018-separate-bounded-esp32-gameplay-companion.md)
+list(APPEND required_decision_records
+  docs/decisions/0019-separate-transactional-esp32-save-codec.md)
+foreach(relative_path IN LISTS required_decision_records)
+  if(NOT EXISTS "${repository_root}/${relative_path}")
+    list(APPEND missing "${relative_path}")
+  endif()
+endforeach()
+
+set(required_adr_sections
+  "# ADR"
+  "Status"
+  "## Context"
+  "Options considered"
+  "## Decision"
+  "## Rationale"
+  "Positive"
+  "Negative"
+  "Reconsider")
+foreach(relative_path IN LISTS decision_records)
+  file(READ "${repository_root}/${relative_path}" adr_text)
+  foreach(required_section IN LISTS required_adr_sections)
+    string(FIND "${adr_text}" "${required_section}" section_position)
+    if(section_position EQUAL -1)
+      list(APPEND empty "${relative_path} (missing ADR section: ${required_section})")
+    endif()
+  endforeach()
+endforeach()
 
 if(missing)
   list(JOIN missing ", " missing_text)

@@ -77,6 +77,40 @@ float decodeSample(const std::uint8_t* sample, std::uint16_t bits) noexcept {
     }
 }
 
+[[nodiscard]] bool parseAudioClipInfo(const std::vector<std::uint8_t>& bytes,
+                                      AudioClipInfo& info) noexcept {
+    if (bytes.size() < 24U || !fourCc(bytes, 0U, "FGLA")) {
+        return false;
+    }
+    std::uint16_t version = 0U;
+    std::uint16_t flags = 0U;
+    if (!readU16(bytes, 4U, version) || !readU16(bytes, 6U, flags) ||
+        !readU32(bytes, 8U, info.sampleRate) || !readU32(bytes, 12U, info.sampleCount) ||
+        !readU32(bytes, 16U, info.loopStart) || !readU32(bytes, 20U, info.loopEnd) ||
+        (version != 1U && version != 2U) || (flags & static_cast<std::uint16_t>(~3U)) != 0U ||
+        (version == 1U && (flags & 2U) != 0U) || info.sampleCount == 0U ||
+        info.sampleCount > 100000000U || info.loopStart > info.loopEnd ||
+        info.loopEnd > info.sampleCount || info.sampleRate < 4000U || info.sampleRate > 192000U) {
+        return false;
+    }
+    info.streaming = (flags & 1U) != 0U;
+    info.encoding =
+        version == 2U && (flags & 2U) != 0U ? AudioEncoding::Delta8 : AudioEncoding::Pcm16;
+
+    std::size_t payloadBytes = 0U;
+    if (info.encoding == AudioEncoding::Pcm16) {
+        payloadBytes = static_cast<std::size_t>(info.sampleCount) * 2U;
+    } else {
+        constexpr std::size_t BlockSamples = 128U;
+        constexpr std::size_t FullBlockBytes = 129U;
+        const auto sampleCount = static_cast<std::size_t>(info.sampleCount);
+        const auto fullBlocks = sampleCount / BlockSamples;
+        const auto remaining = sampleCount % BlockSamples;
+        payloadBytes = fullBlocks * FullBlockBytes + (remaining == 0U ? 0U : remaining + 1U);
+    }
+    return payloadBytes <= bytes.size() && bytes.size() == 24U + payloadBytes;
+}
+
 } // namespace
 
 bool AudioClip::valid() const noexcept {
@@ -221,7 +255,7 @@ Result<AudioClip> importWav(const std::vector<std::uint8_t>& bytes,
     return Result<AudioClip>::success(std::move(clip));
 }
 
-std::vector<std::uint8_t> encodeAudioClip(const AudioClip& clip) {
+std::vector<std::uint8_t> encodeAudioClip(const AudioClip& clip, const AudioEncoding encoding) {
     if (!clip.valid() ||
         clip.samples.size() > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
         return {};
@@ -229,16 +263,137 @@ std::vector<std::uint8_t> encodeAudioClip(const AudioClip& clip) {
     std::vector<std::uint8_t> output;
     output.reserve(24U + clip.samples.size() * 2U);
     output.insert(output.end(), {'F', 'G', 'L', 'A'});
-    appendU16(output, 1U);
-    appendU16(output, clip.streaming ? 1U : 0U);
+    appendU16(output, encoding == AudioEncoding::Pcm16 ? 1U : 2U);
+    const auto flags = static_cast<std::uint16_t>((clip.streaming ? 1U : 0U) |
+                                                  (encoding == AudioEncoding::Delta8 ? 2U : 0U));
+    appendU16(output, flags);
     appendU32(output, clip.sampleRate);
     appendU32(output, static_cast<std::uint32_t>(clip.samples.size()));
     appendU32(output, clip.loopStart);
     appendU32(output, clip.loopEnd);
-    for (const auto sample : clip.samples) {
-        appendU16(output, static_cast<std::uint16_t>(sample));
+    if (encoding == AudioEncoding::Pcm16) {
+        for (const auto sample : clip.samples) {
+            appendU16(output, static_cast<std::uint16_t>(sample));
+        }
+        return output;
+    }
+
+    constexpr std::size_t BlockSamples = 128U;
+    constexpr int QuantizationStep = 256;
+    for (std::size_t blockStart = 0; blockStart < clip.samples.size(); blockStart += BlockSamples) {
+        auto reconstructed = static_cast<int>(clip.samples[blockStart]);
+        appendU16(output, static_cast<std::uint16_t>(clip.samples[blockStart]));
+        const auto blockEnd = std::min(blockStart + BlockSamples, clip.samples.size());
+        for (auto index = blockStart + 1U; index < blockEnd; ++index) {
+            const auto difference = static_cast<int>(clip.samples[index]) - reconstructed;
+            const auto quantized =
+                std::clamp(static_cast<int>(std::lround(static_cast<double>(difference) /
+                                                        static_cast<double>(QuantizationStep))),
+                           -128, 127);
+            output.push_back(static_cast<std::uint8_t>(quantized & 0xFF));
+            reconstructed = std::clamp(reconstructed + quantized * QuantizationStep,
+                                       static_cast<int>(std::numeric_limits<std::int16_t>::min()),
+                                       static_cast<int>(std::numeric_limits<std::int16_t>::max()));
+        }
     }
     return output;
+}
+
+Result<AudioClipInfo> inspectAudioClip(const std::vector<std::uint8_t>& bytes) {
+    AudioClipInfo info;
+    if (!parseAudioClipInfo(bytes, info)) {
+        return Result<AudioClipInfo>::failure(
+            Error(ErrorCode::InvalidFormat, "FabGL Studio audio stream is invalid"));
+    }
+    return Result<AudioClipInfo>::success(info);
+}
+
+std::size_t decodeAudioClipFrames(const std::vector<std::uint8_t>& bytes, const AudioClipInfo& info,
+                                  const std::size_t firstFrame, std::int16_t* output,
+                                  const std::size_t frameCount) noexcept {
+    AudioClipInfo encoded;
+    if (!parseAudioClipInfo(bytes, encoded) || encoded.sampleRate != info.sampleRate ||
+        encoded.sampleCount != info.sampleCount || encoded.streaming != info.streaming ||
+        encoded.loopStart != info.loopStart || encoded.loopEnd != info.loopEnd ||
+        encoded.encoding != info.encoding || firstFrame >= encoded.sampleCount ||
+        (output == nullptr && frameCount != 0U)) {
+        return 0U;
+    }
+    const auto available = static_cast<std::size_t>(encoded.sampleCount) - firstFrame;
+    const auto requested = std::min(frameCount, available);
+    if (requested == 0U) {
+        return 0U;
+    }
+    if (encoded.encoding == AudioEncoding::Pcm16) {
+        auto offset = 24U + firstFrame * 2U;
+        for (std::size_t index = 0U; index < requested; ++index) {
+            std::uint16_t sample = 0U;
+            if (!readU16(bytes, offset, sample)) {
+                return index;
+            }
+            output[index] = static_cast<std::int16_t>(sample);
+            offset += 2U;
+        }
+        return requested;
+    }
+
+    constexpr std::size_t BlockSamples = 128U;
+    constexpr std::size_t FullBlockBytes = 129U;
+    constexpr int QuantizationStep = 256;
+    const auto lastFrame = firstFrame + requested;
+    auto blockIndex = firstFrame / BlockSamples;
+    auto produced = std::size_t{0U};
+    while (blockIndex * BlockSamples < lastFrame) {
+        const auto blockFirstFrame = blockIndex * BlockSamples;
+        const auto blockSamples =
+            std::min(BlockSamples, static_cast<std::size_t>(encoded.sampleCount) - blockFirstFrame);
+        auto offset = 24U + blockIndex * FullBlockBytes;
+        std::uint16_t anchor = 0U;
+        if (!readU16(bytes, offset, anchor)) {
+            return produced;
+        }
+        offset += 2U;
+        auto reconstructed = static_cast<int>(static_cast<std::int16_t>(anchor));
+        for (std::size_t inBlock = 0U; inBlock < blockSamples; ++inBlock) {
+            if (inBlock != 0U) {
+                if (offset >= bytes.size()) {
+                    return produced;
+                }
+                const auto byte = static_cast<int>(bytes[offset++]);
+                const auto delta = byte <= 127 ? byte : byte - 256;
+                reconstructed =
+                    std::clamp(reconstructed + delta * QuantizationStep,
+                               static_cast<int>(std::numeric_limits<std::int16_t>::min()),
+                               static_cast<int>(std::numeric_limits<std::int16_t>::max()));
+            }
+            const auto frame = blockFirstFrame + inBlock;
+            if (frame >= firstFrame && frame < lastFrame) {
+                output[produced++] = static_cast<std::int16_t>(reconstructed);
+            }
+        }
+        ++blockIndex;
+    }
+    return produced;
+}
+
+Result<AudioClip> decodeAudioClip(const std::vector<std::uint8_t>& bytes) {
+    auto inspected = inspectAudioClip(bytes);
+    if (!inspected) {
+        return Result<AudioClip>::failure(inspected.error());
+    }
+    AudioClip clip;
+    clip.sampleRate = inspected.value().sampleRate;
+    clip.streaming = inspected.value().streaming;
+    clip.loopStart = inspected.value().loopStart;
+    clip.loopEnd = inspected.value().loopEnd;
+    clip.samples.resize(inspected.value().sampleCount);
+    const auto decoded = decodeAudioClipFrames(bytes, inspected.value(), 0U, clip.samples.data(),
+                                               clip.samples.size());
+    if (decoded != clip.samples.size()) {
+        return Result<AudioClip>::failure(
+            Error(ErrorCode::InvalidFormat, "FabGL Studio audio payload is truncated"));
+    }
+    return Result<AudioClip>::success(std::move(clip));
 }
 
 } // namespace fabgl::assets

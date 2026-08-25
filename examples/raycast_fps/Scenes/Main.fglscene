@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000004
 scene_name "Raycast Facility"
 entity_begin
@@ -6,26 +6,173 @@ guid 30000000-0000-4000-8000-000000000004
 name "FirstPersonPlayer"
 active 1
 parent nil
-position 2.5 2.5 0
-rotation 0 0 0
-scale 1 1 1
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 2.5 2.5 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 0e9fe51f-55c4-594a-bbbb-6c274dde78f7
+type_name "fabgl.FirstPersonController"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "moveSpeed" float 3.5
+property "lookSensitivity" float 1.2
+property "moveXAxis" string "MoveX"
+property "moveYAxis" string "MoveY"
+property "lookXAxis" string "LookX"
+property "primaryAction" string "Fire"
+component_end
+component_begin
+type_id 16b69996-8e25-554a-8931-b68ef0354306
+type_name "fabgl.Camera"
+enabled 1
+property_count 6
+property "enabled" bool 1
+property "orthographic" bool 0
+property "size" float 5
+property "clearColor" color 18 24 34 255
+property "viewport" rect 0 0 1 1
+property "projection" enum 1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000014
 name "RaycastMap"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 5a5d9bb4-f420-5306-b19a-c7bb9e53162a
+type_name "fabgl.RaycastMap"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "map" asset 50000000-0000-4000-8000-000000000004
+property "cellSize" fixed 65536
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000024
 name "Enemy"
 active 1
 parent nil
-position 4.5 4.5 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 4.5 2.5 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset nil
+property "tint" color 244 82 72 255
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000034
+name "KeyPickup"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 2.5 2.5 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset nil
+property "tint" color 250 215 70 255
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000044
+name "SecretArea"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 2.5 2.5 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 1 1
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 4
+property "collisionMask" flags 1
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000054
+name "LockedDoor"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 3.5 2.5 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 1 1
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 8
+property "collisionMask" flags 1
+component_end
 entity_end
 scene_end

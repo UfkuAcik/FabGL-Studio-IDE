@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "profile": {
+    "id": "windows-x86_64-qt-6.8.3-mingw-13.1.0",
+    "displayName": "Windows x86-64 / Qt 6.8.3 / MinGW 13.1.0",
+    "host": "windows",
+    "architecture": "x86_64",
+    "generator": "MinGW Makefiles"
+  },
+  "python": {
+    "minimumVersion": "3.10.0",
+    "aqtinstall": {
+      "package": "aqtinstall",
+      "version": "3.3.0",
+      "indexUrl": "https://pypi.org/simple",
+      "installDirectory": ".toolchains/python-packages"
+    }
+  },
+  "qt": {
+    "version": "6.8.3",
+    "host": "windows",
+    "target": "desktop",
+    "architecture": "win64_mingw",
+    "archives": [
+      "qtbase"
+    ],
+    "installRoot": ".toolchains/Qt",
+    "sdkDirectory": "6.8.3/mingw_64",
+    "requiredFiles": [
+      "bin/qmake.exe",
+      "bin/qtpaths.exe",
+      "bin/windeployqt.exe",
+      "bin/Qt6Core.dll",
+      "bin/Qt6Gui.dll",
+      "bin/Qt6Widgets.dll",
+      "lib/cmake/Qt6/Qt6Config.cmake",
+      "plugins/platforms/qwindows.dll",
+      "plugins/platforms/qoffscreen.dll"
+    ],
+    "source": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_683/",
+    "license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only OR Commercial"
+  },
+  "compiler": {
+    "aqtTool": "tools_mingw1310",
+    "aqtVariant": "qt.tools.win64_mingw1310",
+    "version": "13.1.0",
+    "targetTriple": "x86_64-w64-mingw32",
+    "directory": "Tools/mingw1310_64",
+    "cxx": "bin/g++.exe",
+    "make": "bin/mingw32-make.exe",
+    "source": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/tools_mingw1310/"
+  },
+  "packaging": {
+    "nsis": {
+      "version": "3.12",
+      "url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12-setup.exe",
+      "sha256": "3bc2b06253a7e4957111be152ac6a536e0c7478a706e19da814038db5d706495",
+      "installDirectory": ".toolchains/NSIS",
+      "requiredFiles": [
+        "makensis.exe",
+        "Bin/makensis.exe",
+        "Stubs/zlib-x86-unicode",
+        "Plugins/x86-unicode/nsExec.dll"
+      ],
+      "license": "zlib"
+    }
+  },
+  "build": {
+    "minimumCMakeVersion": "3.24.0",
+    "buildDirectoryPattern": "out/build/desktop-{configuration}",
+    "installDirectoryPattern": "out/install/desktop-{configuration}",
+    "packageDirectory": "out/packages/desktop"
+  },
+  "storage": {
+    "minimumFreeBytes": 4294967296,
+    "cacheDirectory": ".downloads/desktop"
+  }
+}

@@ -21,10 +21,26 @@ struct FrameMetrics final {
     double accumulatorSeconds = 0.0;
     double interpolationAlpha = 0.0;
     double measuredCpuSeconds = 0.0;
+    double fixedUpdateCpuSeconds = 0.0;
+    double physicsCpuSeconds = 0.0;
+    double updateCpuSeconds = 0.0;
+    double aiCpuSeconds = 0.0;
+    double animationCpuSeconds = 0.0;
+    double audioCpuSeconds = 0.0;
+    double assetStreamingCpuSeconds = 0.0;
+    double renderSubmissionCpuSeconds = 0.0;
+    double renderingCpuSeconds = 0.0;
+    double presentCpuSeconds = 0.0;
     std::uint32_t fixedUpdateCount = 0;
     std::uint32_t droppedFixedUpdateCount = 0;
     bool frameDeltaClamped = false;
     bool catchUpLimited = false;
+
+    [[nodiscard]] double profiledCpuSeconds() const noexcept {
+        return fixedUpdateCpuSeconds + physicsCpuSeconds + updateCpuSeconds + aiCpuSeconds +
+               animationCpuSeconds + audioCpuSeconds + assetStreamingCpuSeconds +
+               renderSubmissionCpuSeconds + renderingCpuSeconds + presentCpuSeconds;
+    }
 };
 
 struct EngineLoopCallbacks final {
@@ -34,8 +50,10 @@ struct EngineLoopCallbacks final {
     std::function<Result<void>(double)> fixedUpdate;
     std::function<Result<void>(double)> physicsUpdate;
     std::function<Result<void>(double)> variableUpdate;
+    std::function<Result<void>(double)> aiUpdate;
     std::function<Result<void>(double)> animationUpdate;
     std::function<Result<void>(double)> audioUpdate;
+    std::function<Result<void>(double)> assetStreamingUpdate;
     std::function<Result<void>(double)> renderSubmission;
     std::function<Result<void>()> render;
     std::function<Result<void>()> present;

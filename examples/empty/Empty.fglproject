@@ -1,11 +1,19 @@
 {
   "kind": "FabGLStudioProject",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "projectGuid": "10000000-0000-4000-8000-000000000001",
   "name": "Empty Project",
   "projectRoot": ".",
   "startupScene": "Scenes/Main.fglscene",
-  "previewDemo": "empty",
-  "scene": { "entities": [{"id":"30000000-0000-4000-8000-000000000001","name":"Camera"}] },
-  "build": {"program":"cmake","arguments":["--build","out/build/dev"]}
+  "build": {
+    "program": "cmake",
+    "arguments": ["--build", "out/build/dev"]
+  },
+  "assets": [],
+  "input": {"contexts": []},
+  "packages": [],
+  "targetProfiles": {
+    "pc": "pc.default",
+    "esp32": "olimex-esp32-sbc-fabgl-revb"
+  }
 }

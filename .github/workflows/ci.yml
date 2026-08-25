@@ -48,49 +48,28 @@ jobs:
           -DCLANG_FORMAT_EXECUTABLE="$(command -v clang-format)"
           -P scripts/check_format.cmake
 
-  full-build:
-    name: full build and test (${{ matrix.label }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            label: linux-gcc-qt6
-          - os: windows-2022
-            label: windows-msvc2022-qt6
-    runs-on: ${{ matrix.os }}
+  linux-qt:
+    name: Linux Qt build, test, and GUI smoke
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Linux build dependencies and Qt 6
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ninja-build qt6-base-dev
+          sudo apt-get install --yes --no-install-recommends \
+            ninja-build qt6-base-dev qt6-qpa-plugins
           qmake6 -query QT_VERSION
 
-      - name: Install Windows Qt 6.8.3
-        if: runner.os == 'Windows'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: "6.8.3"
-          host: windows
-          target: desktop
-          arch: win64_msvc2022_64
-          archives: qtbase
-          cache: true
-          cache-key-prefix: fabgl-studio-qt-6.8.3-msvc2022
-
-      - name: Configure full Linux build
-        if: runner.os == 'Linux'
+      - name: Configure the complete Qt build
         shell: bash
         run: |
           set -euxo pipefail
-          cmake -S . -B out/ci/full -G Ninja \
+          cmake -S . -B out/ci/linux -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DFGL_BUILD_STUDIO=ON \
             -DFGL_BUILD_PLAYER=ON \
@@ -100,53 +79,219 @@ jobs:
             -DFGL_WARNINGS_AS_ERRORS=ON \
             -DFGL_PACKAGE_NSIS=OFF
 
-      - name: Configure full Windows build
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cmake -S . -B out/ci/full `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" `
-            -DFGL_BUILD_STUDIO=ON `
-            -DFGL_BUILD_PLAYER=ON `
-            -DFGL_BUILD_TOOLS=ON `
-            -DFGL_BUILD_TESTS=ON `
-            -DFGL_BUILD_EXAMPLES=ON `
-            -DFGL_WARNINGS_AS_ERRORS=ON `
-            -DFGL_PACKAGE_NSIS=OFF
-
       - name: Require and build the Qt Studio target
-        run: cmake --build out/ci/full --config Release --target fabgl_studio --parallel 2
+        run: cmake --build out/ci/linux --target fabgl_studio --parallel 2
 
       - name: Build every configured target
-        run: cmake --build out/ci/full --config Release --parallel 2
+        run: cmake --build out/ci/linux --parallel 2
 
-      - name: Run the full test suite
-        run: ctest --test-dir out/ci/full -C Release --output-on-failure
+      - name: Run the full test suite offscreen
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir out/ci/linux --output-on-failure --parallel 2
 
-      - name: Create portable Windows ZIP
-        if: runner.os == 'Windows'
-        run: cmake --build out/ci/full --config Release --target package --parallel 2
+      - name: Launch the Qt GUI offscreen
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          QT_QPA_PLATFORM=offscreen timeout 5s \
+            ./out/ci/linux/apps/studio/FabGLStudio >out/ci/linux/studio-smoke.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then
+            cat out/ci/linux/studio-smoke.log
+            echo "FabGLStudio did not remain alive for the offscreen smoke window (status $status)."
+            exit 1
+          fi
 
-      - name: Verify portable Windows ZIP
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: >-
-          cmake
-          "-DPACKAGE_DIRECTORY=$((Resolve-Path 'out/ci/full').Path)"
-          -P scripts/check_portable_package.cmake
+      - name: Capture the real Studio widget tree offscreen
+        shell: bash
+        run: |
+          set -euxo pipefail
+          QT_QPA_PLATFORM=offscreen timeout 20s \
+            ./out/ci/linux/apps/studio/FabGLStudio \
+              --safe-mode \
+              --no-reopen-last-project \
+              --screenshot out/ci/linux/studio-overview.png \
+              examples/platformer/Platformer.fglproject
+          python3 - <<'PY'
+          from pathlib import Path
+          image = Path("out/ci/linux/studio-overview.png").read_bytes()
+          if len(image) < 4096 or image[:8] != b"\x89PNG\r\n\x1a\n":
+              raise SystemExit("Studio screenshot is missing or not a nontrivial PNG")
+          PY
 
-      - name: Upload portable Windows ZIP and checksum
-        if: runner.os == 'Windows'
+  linux-sanitizers:
+    name: Linux ASan and UBSan regression gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ninja-build
+
+      - name: Configure instrumented runtime and tests
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S . -B out/ci/sanitizers -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DFGL_BUILD_STUDIO=OFF \
+            -DFGL_BUILD_PLAYER=ON \
+            -DFGL_BUILD_TOOLS=ON \
+            -DFGL_BUILD_TESTS=ON \
+            -DFGL_BUILD_EXAMPLES=ON \
+            -DFGL_WARNINGS_AS_ERRORS=ON \
+            -DFGL_ENABLE_SANITIZERS=ON \
+            -DFGL_PACKAGE_NSIS=OFF
+
+      - name: Build the instrumented suite
+        run: cmake --build out/ci/sanitizers --parallel 2
+
+      - name: Reject leaks, undefined behavior, and sanitizer findings
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1:check_initialization_order=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir out/ci/sanitizers --output-on-failure --parallel 2
+
+  windows-desktop:
+    name: locked Windows desktop package
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Cache the locked Qt SDK and aqtinstall
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            .downloads/desktop
+            .toolchains/python-packages
+            .toolchains/Qt
+            .toolchains/NSIS
+          key: windows-desktop-${{ hashFiles('toolchains/desktop-manifest.json') }}
+
+      - name: Build, test, package, and smoke-test Studio
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/build_desktop.ps1 `
+            -Configuration Release `
+            -PackageDirectory out/packages/ci `
+            -RunGuiSmoke `
+            -RequireInstaller `
+            -Jobs 2
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The locked desktop build failed.'
+          }
+
+      - name: Verify portable ZIP independently
+        shell: powershell
+        run: |
+          cmake `
+            "-DPACKAGE_DIRECTORY=$((Resolve-Path 'out/packages/ci').Path)" `
+            -P scripts/check_portable_package.cmake
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The independent portable package check failed.'
+          }
+
+      - name: Upload portable ZIP, installer, and checksums
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: fabgl-studio-windows-portable
           path: |
-            out/ci/full/FabGL-Studio-*.zip
-            out/ci/full/FabGL-Studio-*.zip.sha256
+            out/packages/ci/FabGL-Studio-*-Windows-*.zip
+            out/packages/ci/FabGL-Studio-*-Windows-*.zip.sha256
+            out/packages/ci/FabGL-Studio-*-Windows-*.exe
+            out/packages/ci/FabGL-Studio-*-Windows-*.exe.sha256
+            out/packages/ci/desktop-build-result.json
           if-no-files-found: error
           compression-level: 0
+          retention-days: 14
+
+  windows-esp32:
+    name: locked ESP32 firmware compile
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Cache the locked Arduino, ESP32, and FabGL toolchain
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            .downloads/toolchains
+            .toolchains/arduino-cli
+            .toolchains/arduino-data
+            .toolchains/libraries
+            .toolchains/sources
+            .toolchains/bootstrap-result.json
+          key: windows-esp32-${{ hashFiles('toolchains/manifest.json') }}
+
+      - name: Bootstrap and verify the locked toolchain
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/bootstrap_toolchain.ps1
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The locked ESP32 toolchain bootstrap failed.'
+          }
+
+      - name: Build the deterministic project exporter
+        shell: powershell
+        run: |
+          cmake -S . -B out/ci/esp32-host -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DFGL_BUILD_STUDIO=OFF `
+            -DFGL_BUILD_PLAYER=OFF `
+            -DFGL_BUILD_TOOLS=ON `
+            -DFGL_BUILD_TESTS=OFF `
+            -DFGL_BUILD_EXAMPLES=OFF `
+            -DFGL_WARNINGS_AS_ERRORS=ON `
+            -DFGL_PACKAGE_NSIS=OFF
+          if ($LASTEXITCODE -ne 0) {
+            throw 'ESP32 host-tool configuration failed.'
+          }
+          cmake --build out/ci/esp32-host --target fabgl_project_cli --parallel 2
+          if ($LASTEXITCODE -ne 0) {
+            throw 'ESP32 project exporter build failed.'
+          }
+
+      - name: Compile an exported project with the size profile
+        shell: powershell
+        run: |
+          $projectCli = (Resolve-Path 'out/ci/esp32-host/tools/project_cli/fabgl_project_cli.exe').Path
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/build_esp32.ps1 `
+            -ProjectPath examples/empty/Empty.fglproject `
+            -ProjectCli $projectCli `
+            -OutputRoot out/ci/esp32-firmware `
+            -BuildProfile SizeOptimized `
+            -Clean `
+            -Jobs 2
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Locked ESP32 firmware compile failed.'
+          }
+
+      - name: Upload firmware build evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fabgl-studio-esp32-build-evidence
+          path: |
+            out/ci/esp32-firmware/build-result.json
+            out/ci/esp32-firmware/**/*.bin
+            out/ci/esp32-firmware/**/*.map
+          if-no-files-found: error
+          compression-level: 6
           retention-days: 14
 
   clang-tidy:

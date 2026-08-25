@@ -1,0 +1,9 @@
+fglcontroller 1
+controller_guid 52000000-0000-4000-8000-000000000009
+controller_name "Showcase Controller"
+initial_state "idle"
+parameter_count 0
+state_count 1
+state "idle" 53000000-0000-4000-8000-000000000009
+transition_count 0
+controller_end

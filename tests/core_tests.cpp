@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -56,6 +57,14 @@ FGL_TEST(strong_guids_are_canonical_distinct_and_stable) {
     FGL_CHECK(uppercase.value().toString() == "550e8400-e29b-41d4-a716-446655440000");
     FGL_CHECK(!EntityGuid::parse("not-a-guid"));
     FGL_CHECK(!EntityGuid::parse("550e8400-e29b-41d4-a716-44665544000z"));
+
+    std::set<std::string> generatedValues;
+    for (std::size_t index = 0U; index < 4096U; ++index) {
+        const auto value = EntityGuid::generate();
+        FGL_CHECK((value.bytes()[6] & 0xF0U) == 0x40U);
+        FGL_CHECK((value.bytes()[8] & 0xC0U) == 0x80U);
+        FGL_CHECK(generatedValues.insert(value.toString()).second);
+    }
 }
 
 FGL_TEST(math_types_cover_geometry_color_fixed_point_and_trs) {
@@ -154,4 +163,46 @@ FGL_TEST(reflection_registry_exposes_metadata_and_safe_accessors) {
 
     auto duplicate = reflectedObjectMetadata();
     FGL_CHECK(!registry.registerType(std::move(duplicate)));
+}
+
+FGL_TEST(reflection_validates_structured_property_values_and_editor_metadata) {
+    PropertyMetadata list;
+    list.name = "targets";
+    list.type = PropertyType::List;
+    list.listElementType = PropertyType::ComponentReference;
+    const auto entity = EntityGuid::fromStableName("tests.reflection.entity");
+    const auto component = ComponentTypeGuid::fromStableName("tests.reflection.component");
+    PropertyList references{PropertyType::ComponentReference,
+                            {ComponentReference{entity, component}}};
+    FGL_CHECK(validatePropertyValue(list, PropertyValue(references)));
+    references.values.push_back(ComponentReference{entity, ComponentTypeGuid{}});
+    FGL_CHECK(!validatePropertyValue(list, PropertyValue(references)));
+
+    PropertyMetadata curve;
+    curve.name = "curve";
+    curve.type = PropertyType::Curve;
+    FGL_CHECK(validatePropertyValue(
+        curve, PropertyValue(Curve{{CurvePoint{0.0, 0.0}, CurvePoint{1.0, 1.0}}})));
+    FGL_CHECK(!validatePropertyValue(
+        curve, PropertyValue(Curve{{CurvePoint{1.0, 0.0}, CurvePoint{1.0, 1.0}}})));
+
+    PropertyMetadata animation;
+    animation.name = "animation";
+    animation.type = PropertyType::AnimationCurve;
+    FGL_CHECK(validatePropertyValue(
+        animation,
+        PropertyValue(PropertyAnimationCurve{{AnimationCurveKey{0.0, 0.0, 0.0, 0.0},
+                                               AnimationCurveKey{2.0, 1.0, -0.5, 0.5}}})));
+
+    TypeMetadata invalidSlider;
+    invalidSlider.typeId = ComponentTypeGuid::fromStableName("tests.InvalidSlider");
+    invalidSlider.name = "tests.InvalidSlider";
+    PropertyMetadata slider;
+    slider.name = "amount";
+    slider.type = PropertyType::Float;
+    slider.defaultValue = 0.5;
+    slider.editorHint = PropertyEditorHint::Slider;
+    invalidSlider.properties.push_back(std::move(slider));
+    ReflectionRegistry registry;
+    FGL_CHECK(!registry.registerType(std::move(invalidSlider)));
 }

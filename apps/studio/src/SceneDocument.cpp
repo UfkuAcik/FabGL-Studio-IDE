@@ -1,6 +1,8 @@
 #include "SceneDocument.h"
 
+#include <fabgl/scene/builtin_components.h>
 #include <fabgl/scene/entity.h>
+#include <fabgl/scene/transform_component.h>
 #include <fabgl/serialization/scene_serializer.h>
 
 #include <QDir>
@@ -14,7 +16,9 @@
 namespace fgl::studio {
 
 SceneDocument::SceneDocument(QObject* parent)
-    : QObject(parent), m_scene(std::make_unique<fabgl::Scene>("Main Scene")) {}
+    : QObject(parent), m_scene(std::make_unique<fabgl::Scene>("Main Scene")) {
+    (void)fabgl::registerBuiltinComponentTypes(m_reflectionRegistry);
+}
 
 fabgl::Scene& SceneDocument::scene() noexcept {
     return *m_scene;
@@ -122,6 +126,20 @@ QByteArray SceneDocument::serialized(QString& errorMessage) const {
     return QByteArray(text.data(), static_cast<qsizetype>(text.size()));
 }
 
+bool SceneDocument::restoreSerialized(const QByteArray& bytes, QString& errorMessage,
+                                      const bool markModified) {
+    auto parsed = fabgl::SceneSerializer::deserialize(
+        std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
+    if (!parsed) {
+        errorMessage = tr("Scene snapshot restore failed: %1").arg(errorText(parsed.error()));
+        return false;
+    }
+    m_scene = std::move(parsed.value());
+    setModified(markModified);
+    emit sceneReset();
+    return true;
+}
+
 std::unique_ptr<fabgl::Scene> SceneDocument::cloneScene(QString& errorMessage) const {
     const auto bytes = serialized(errorMessage);
     if (bytes.isNull()) {
@@ -136,12 +154,183 @@ std::unique_ptr<fabgl::Scene> SceneDocument::cloneScene(QString& errorMessage) c
     return std::move(parsed.value());
 }
 
+const fabgl::ReflectionRegistry& SceneDocument::reflectionRegistry() const noexcept {
+    return m_reflectionRegistry;
+}
+
+std::optional<ComponentSnapshot>
+SceneDocument::componentSnapshot(const fabgl::EntityGuid entityId,
+                                 const fabgl::ComponentTypeGuid typeId,
+                                 QString& errorMessage) const {
+    const auto* entity = m_scene->findEntity(entityId);
+    if (entity == nullptr) {
+        errorMessage = tr("Entity %1 was not found.").arg(guidString(entityId));
+        return std::nullopt;
+    }
+    const auto* component = entity->getComponent(typeId);
+    if (component == nullptr) {
+        errorMessage = tr("Component %1 was not found on entity %2.")
+                           .arg(QString::fromStdString(typeId.toString()), guidString(entityId));
+        return std::nullopt;
+    }
+
+    ComponentSnapshot result{
+        typeId, QString::fromUtf8(component->typeName()), component->enabled(), {}};
+    const auto* metadata = component->metadata();
+    if (metadata == nullptr) {
+        return result;
+    }
+    result.properties.reserve(metadata->properties.size());
+    for (const auto& property : metadata->properties) {
+        const auto value = property.read(component);
+        if (value) {
+            result.properties.emplace_back(property.name, value.value());
+        }
+    }
+    return result;
+}
+
+bool SceneDocument::addBuiltinComponent(const fabgl::EntityGuid entityId, const QString& typeName,
+                                        QString& errorMessage) {
+    auto* entity = m_scene->findEntity(entityId);
+    if (entity == nullptr) {
+        errorMessage = tr("Entity %1 was not found.").arg(guidString(entityId));
+        return false;
+    }
+    auto created = fabgl::createBuiltinDataComponent(m_reflectionRegistry, typeName.toStdString());
+    if (!created) {
+        errorMessage = errorText(created.error());
+        return false;
+    }
+    auto added = entity->addComponent(std::move(created.value()));
+    if (!added) {
+        errorMessage = errorText(added.error());
+        return false;
+    }
+    setModified(true);
+    emit entityChanged(guidString(entityId));
+    return true;
+}
+
+bool SceneDocument::restoreComponent(const fabgl::EntityGuid entityId,
+                                     const ComponentSnapshot& snapshot, QString& errorMessage) {
+    auto* entity = m_scene->findEntity(entityId);
+    if (entity == nullptr) {
+        errorMessage = tr("Entity %1 was not found.").arg(guidString(entityId));
+        return false;
+    }
+    auto created = fabgl::createBuiltinDataComponent(m_reflectionRegistry, snapshot.typeId);
+    if (!created) {
+        errorMessage = errorText(created.error());
+        return false;
+    }
+    created.value()->setEnabled(snapshot.enabled);
+    for (const auto& [propertyName, value] : snapshot.properties) {
+        const auto written = created.value()->set(propertyName, value);
+        if (!written && written.error().code() != fabgl::ErrorCode::InvalidState) {
+            errorMessage = errorText(written.error());
+            return false;
+        }
+    }
+    auto added = entity->addComponent(std::move(created.value()));
+    if (!added) {
+        errorMessage = errorText(added.error());
+        return false;
+    }
+    setModified(true);
+    emit entityChanged(guidString(entityId));
+    return true;
+}
+
+bool SceneDocument::removeComponent(const fabgl::EntityGuid entityId,
+                                    const fabgl::ComponentTypeGuid typeId, QString& errorMessage) {
+    auto* entity = m_scene->findEntity(entityId);
+    if (entity == nullptr) {
+        errorMessage = tr("Entity %1 was not found.").arg(guidString(entityId));
+        return false;
+    }
+    const auto removed = entity->removeComponent(typeId);
+    if (!removed) {
+        errorMessage = errorText(removed.error());
+        return false;
+    }
+    setModified(true);
+    emit entityChanged(guidString(entityId));
+    return true;
+}
+
+std::optional<fabgl::PropertyValue>
+SceneDocument::componentProperty(const fabgl::EntityGuid entityId,
+                                 const fabgl::ComponentTypeGuid typeId,
+                                 const std::string& propertyName, QString& errorMessage) const {
+    const auto* entity = m_scene->findEntity(entityId);
+    const auto* component = entity != nullptr ? entity->getComponent(typeId) : nullptr;
+    if (component == nullptr) {
+        errorMessage =
+            tr("Component %1 was not found.").arg(QString::fromStdString(typeId.toString()));
+        return std::nullopt;
+    }
+    const auto* metadata = component->metadata();
+    const auto* property = metadata != nullptr ? metadata->findProperty(propertyName) : nullptr;
+    if (property == nullptr) {
+        errorMessage = tr("Property %1 was not found.").arg(QString::fromStdString(propertyName));
+        return std::nullopt;
+    }
+    const auto value = property->read(component);
+    if (!value) {
+        errorMessage = errorText(value.error());
+        return std::nullopt;
+    }
+    return value.value();
+}
+
+bool SceneDocument::setComponentProperty(const fabgl::EntityGuid entityId,
+                                         const fabgl::ComponentTypeGuid typeId,
+                                         const std::string& propertyName,
+                                         const fabgl::PropertyValue& value, QString& errorMessage,
+                                         const bool markModified) {
+    auto* entity = m_scene->findEntity(entityId);
+    auto* component = entity != nullptr ? entity->getComponent(typeId) : nullptr;
+    if (component == nullptr) {
+        errorMessage =
+            tr("Component %1 was not found.").arg(QString::fromStdString(typeId.toString()));
+        return false;
+    }
+    const auto* metadata = component->metadata();
+    const auto* property = metadata != nullptr ? metadata->findProperty(propertyName) : nullptr;
+    if (property == nullptr) {
+        errorMessage = tr("Property %1 was not found.").arg(QString::fromStdString(propertyName));
+        return false;
+    }
+    const auto written = property->write(component, value);
+    if (!written) {
+        errorMessage = errorText(written.error());
+        return false;
+    }
+    if (markModified) {
+        setModified(true);
+    }
+    emit entityChanged(guidString(entityId));
+    return true;
+}
+
 std::optional<EntitySnapshot> SceneDocument::snapshot(const fabgl::EntityGuid id) const {
     const auto* entity = m_scene->findEntity(id);
     if (entity == nullptr) {
         return std::nullopt;
     }
     const auto& transform = entity->transform();
+    std::vector<ComponentSnapshot> components;
+    for (const auto* component : entity->components()) {
+        if (component->typeId() == fabgl::TransformComponent::staticTypeId()) {
+            continue;
+        }
+        QString ignored;
+        auto componentState = componentSnapshot(id, component->typeId(), ignored);
+        if (componentState) {
+            components.push_back(std::move(*componentState));
+        }
+    }
     return EntitySnapshot{id,
                           QString::fromStdString(entity->name()),
                           entity->active(),
@@ -149,7 +338,8 @@ std::optional<EntitySnapshot> SceneDocument::snapshot(const fabgl::EntityGuid id
                           transform.localRotation(),
                           transform.localScale(),
                           transform.parent(),
-                          transform.children()};
+                          transform.children(),
+                          std::move(components)};
 }
 
 bool SceneDocument::restoreEntity(const EntitySnapshot& entitySnapshot, QString& errorMessage) {
@@ -163,6 +353,12 @@ bool SceneDocument::restoreEntity(const EntitySnapshot& entitySnapshot, QString&
     entity->transform().setLocalPosition(entitySnapshot.position);
     entity->transform().setLocalRotation(entitySnapshot.rotation);
     entity->transform().setLocalScale(entitySnapshot.scale);
+    for (const auto& component : entitySnapshot.components) {
+        if (!restoreComponent(entitySnapshot.id, component, errorMessage)) {
+            (void)m_scene->destroyEntity(entitySnapshot.id);
+            return false;
+        }
+    }
     if (entitySnapshot.parent && m_scene->findEntity(*entitySnapshot.parent) != nullptr) {
         const auto parented = m_scene->setParent(entitySnapshot.id, *entitySnapshot.parent);
         if (!parented) {
@@ -221,6 +417,20 @@ bool SceneDocument::applySnapshot(const EntitySnapshot& entitySnapshot, QString&
 void SceneDocument::previewPosition(const fabgl::EntityGuid id, const fabgl::Vec3 position) {
     if (auto* entity = m_scene->findEntity(id)) {
         entity->transform().setLocalPosition(position);
+        emit entityChanged(guidString(id));
+    }
+}
+
+void SceneDocument::previewRotation(const fabgl::EntityGuid id, const fabgl::Vec3 rotation) {
+    if (auto* entity = m_scene->findEntity(id)) {
+        entity->transform().setLocalRotation(rotation);
+        emit entityChanged(guidString(id));
+    }
+}
+
+void SceneDocument::previewScale(const fabgl::EntityGuid id, const fabgl::Vec3 scale) {
+    if (auto* entity = m_scene->findEntity(id)) {
+        entity->transform().setLocalScale(scale);
         emit entityChanged(guidString(id));
     }
 }

@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000002
 scene_name "Platformer Main"
 entity_begin
@@ -6,26 +6,265 @@ guid 30000000-0000-4000-8000-000000000002
 name "Player"
 active 1
 parent nil
-position 32 80 0
-rotation 0 0 0
-scale 1 1 1
+component_count 4
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 32 80 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 50000000-0000-4000-8000-000000000002
+property "tint" color 255 232 120 255
+component_end
+component_begin
+type_id 1cb48bee-bd5f-5a47-ad72-76bbc86e0114
+type_name "fabgl.CharacterBody2D"
+enabled 1
+property_count 6
+property "enabled" bool 1
+property "moveSpeed" float 72
+property "movementMode" enum 0
+property "moveXAxis" string "MoveX"
+property "moveYAxis" string "MoveY"
+property "primaryAction" string "Jump"
+component_end
+component_begin
+type_id 05435f16-f509-5745-aa6c-9076caef10e1
+type_name "fabgl.Health"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "current" sint 100
+property "maximum" sint 100
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000012
 name "Platforms"
 active 1
 parent nil
-position 0 144 0
-rotation 0 0 0
-scale 40 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 144 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 40 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 8 8
+property "radius" float 0.5
+property "trigger" bool 0
+property "layer" flags 1
+property "collisionMask" flags 4294967295
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000022
 name "Camera"
 active 1
 parent nil
-position 160 90 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 160 90 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 16b69996-8e25-554a-8931-b68ef0354306
+type_name "fabgl.Camera"
+enabled 1
+property_count 6
+property "enabled" bool 1
+property "orthographic" bool 1
+property "size" float 5
+property "clearColor" color 24 38 58 255
+property "viewport" rect 0 0 1 1
+property "projection" enum 0
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000032
+name "Collectible"
+active 1
+parent nil
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 32 80 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 50000000-0000-4000-8000-000000000002
+property "tint" color 255 224 70 255
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 8 8
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 2
+property "collisionMask" flags 1
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000042
+name "Checkpoint"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 32 80 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 10 10
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 4
+property "collisionMask" flags 1
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000052
+name "LevelExit"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 32 80 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 10 10
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 8
+property "collisionMask" flags 1
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000062
+name "PlatformerEnemy"
+active 1
+parent nil
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 32 132 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 50000000-0000-4000-8000-000000000002
+property "tint" color 255 90 90 255
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 8 8
+property "radius" float 0.5
+property "trigger" bool 1
+property "layer" flags 2
+property "collisionMask" flags 1
+component_end
+entity_end
+entity_begin
+guid 30000000-0000-4000-8000-000000000072
+name "MovingPlatform"
+active 1
+parent nil
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 72 116 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 71784048-c3da-53d9-9efc-7cdb57fe9d1e
+type_name "fabgl.Collider2D"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "shape" enum 0
+property "size" vec2 24 4
+property "radius" float 0.5
+property "trigger" bool 0
+property "layer" flags 1
+property "collisionMask" flags 4294967295
+component_end
 entity_end
 scene_end

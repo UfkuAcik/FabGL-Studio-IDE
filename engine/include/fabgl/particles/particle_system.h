@@ -32,6 +32,8 @@ struct ParticleSpawn final {
     Color color{};
     float size = 1.0F;
     float lifetimeSeconds = 1.0F;
+    float rotationDegrees = 0.0F;
+    float angularVelocityDegrees = 0.0F;
 };
 
 struct Particle final {
@@ -42,6 +44,8 @@ struct Particle final {
     float size = 1.0F;
     float ageSeconds = 0.0F;
     float lifetimeSeconds = 1.0F;
+    float rotationDegrees = 0.0F;
+    float angularVelocityDegrees = 0.0F;
 
     [[nodiscard]] float normalizedAge() const noexcept;
 };
@@ -100,6 +104,89 @@ class ParticleSystem final {
     std::uint64_t totalDestroyed_ = 0;
     std::uint64_t totalExpired_ = 0;
     std::uint64_t rejectedSpawns_ = 0;
+};
+
+struct ParticleLifetimeStyle final {
+    bool colorEnabled = false;
+    Color endColor{};
+    bool sizeEnabled = false;
+    float endSize = 0.0F;
+    bool rotationEnabled = false;
+    float endRotationDegrees = 0.0F;
+};
+
+struct ParticleEmitterSettings final {
+    ParticleSpawn particle;
+    float spawnRate = 0.0F;
+    std::size_t maximumAlive = std::numeric_limits<std::size_t>::max();
+    ParticleLifetimeStyle overLifetime;
+    bool cullOutsideBounds = false;
+    Rect cullingBounds{};
+};
+
+struct ParticleEmitterStats final {
+    std::size_t activeParticles = 0;
+    std::uint64_t emitted = 0;
+    std::uint64_t culled = 0;
+    std::uint64_t rejected = 0;
+};
+
+// A deterministic emitter layered on the fixed-capacity ParticleSystem pool.
+// update() advances the backing pool once, applies lifetime channels, culls,
+// and then emits from the accumulated spawn rate. Applications sharing one
+// pool between emitters should advance only one emitter per frame and use
+// burst() for the others.
+class ParticleEmitter final {
+  public:
+    explicit ParticleEmitter(ParticleSystem& system, ParticleEmitterSettings settings = {});
+    ~ParticleEmitter();
+
+    ParticleEmitter(const ParticleEmitter&) = delete;
+    ParticleEmitter& operator=(const ParticleEmitter&) = delete;
+
+    [[nodiscard]] Result<void> setSettings(ParticleEmitterSettings settings);
+    [[nodiscard]] const ParticleEmitterSettings& settings() const noexcept {
+        return settings_;
+    }
+    void setPosition(Vec2 position) noexcept {
+        position_ = position;
+    }
+    [[nodiscard]] Vec2 position() const noexcept {
+        return position_;
+    }
+    void setEmitting(bool emitting) noexcept {
+        emitting_ = emitting;
+    }
+    [[nodiscard]] bool emitting() const noexcept {
+        return emitting_;
+    }
+
+    [[nodiscard]] Result<std::size_t> update(float deltaSeconds);
+    [[nodiscard]] Result<std::size_t> burst(std::size_t count);
+    void clear() noexcept;
+    [[nodiscard]] ParticleEmitterStats stats() const noexcept;
+
+  private:
+    struct OwnedParticle final {
+        ParticleHandle handle;
+        Color startColor{};
+        float startSize = 1.0F;
+        float startRotationDegrees = 0.0F;
+    };
+
+    [[nodiscard]] static Result<void> validate(const ParticleEmitterSettings& settings);
+    [[nodiscard]] std::size_t emit(std::size_t count);
+    void refreshOwnedParticles() noexcept;
+
+    ParticleSystem* system_ = nullptr;
+    ParticleEmitterSettings settings_;
+    Vec2 position_{};
+    double spawnAccumulator_ = 0.0;
+    bool emitting_ = true;
+    std::vector<OwnedParticle> owned_;
+    std::uint64_t emitted_ = 0;
+    std::uint64_t culled_ = 0;
+    std::uint64_t rejected_ = 0;
 };
 
 } // namespace fabgl

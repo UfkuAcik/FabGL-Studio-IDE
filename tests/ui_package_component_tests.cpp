@@ -6,7 +6,10 @@
 #include "fabgl/ui/ui_layout.h"
 
 #include <cstdint>
+#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace fabgl;
 
@@ -101,24 +104,109 @@ FGL_TEST(package_manifest_parsing_dependency_order_and_trust_policy_are_enforced
         "name=unsafe\nversion=1.0.0\npath=../outside\ntrust=trusted\n"));
 }
 
+FGL_TEST(package_manifest_v2_preserves_typed_entry_points_and_serializes_canonically) {
+    const std::string source = "schema=2\n"
+                               "id=acme.toolkit\n"
+                               "displayName=Acme Toolkit\n"
+                               "version=1.2.3-beta.1\n"
+                               "engine=^0.1.0\n"
+                               "author=Acme Games\n"
+                               "license=MIT\n"
+                               "path=Packages/acme.toolkit\n"
+                               "executable=true\n"
+                               "dependency=core.runtime@>=1.0.0\n"
+                               "entry=editor-plugin:src/editor.cpp\n"
+                               "entry=runtime-module:src/runtime.cpp\n"
+                               "entry=asset-importer:src/importer.cpp\n"
+                               "entry=custom-inspector:src/inspector.cpp\n"
+                               "entry=custom-window:src/window.cpp\n"
+                               "entry=build-step:src/build.cpp\n"
+                               "entry=renderer-extension:src/renderer.cpp\n"
+                               "entry=framework:src/framework.cpp\n";
+    auto parsed = PackageManifestParser::parse(source);
+    FGL_CHECK(parsed);
+    FGL_CHECK(parsed.value().schemaVersion == 2);
+    FGL_CHECK(parsed.value().stableId() == "acme.toolkit");
+    FGL_CHECK(parsed.value().displayName == "Acme Toolkit");
+    FGL_CHECK(parsed.value().author == "Acme Games");
+    FGL_CHECK(parsed.value().spdxLicense == "MIT");
+    FGL_CHECK(parsed.value().entryPoints.size() == 8U);
+    for (const auto kind :
+         {PackageEntryPointKind::EditorPlugin, PackageEntryPointKind::RuntimeModule,
+          PackageEntryPointKind::AssetImporter, PackageEntryPointKind::CustomInspector,
+          PackageEntryPointKind::CustomWindow, PackageEntryPointKind::BuildStep,
+          PackageEntryPointKind::RendererExtension, PackageEntryPointKind::Framework}) {
+        auto reparsedKind = parsePackageEntryPointKind(packageEntryPointKindName(kind));
+        FGL_CHECK(reparsedKind && reparsedKind.value() == kind);
+    }
+
+    auto canonical = PackageManifestParser::serializeCanonical(parsed.value());
+    FGL_CHECK(canonical);
+    FGL_CHECK(canonical.value().rfind("schema=2\nid=acme.toolkit\n", 0U) == 0U);
+    FGL_CHECK(canonical.value().find("trust=") == std::string::npos);
+    auto roundTrip = PackageManifestParser::parse(canonical.value());
+    FGL_CHECK(roundTrip);
+    auto canonicalAgain = PackageManifestParser::serializeCanonical(roundTrip.value());
+    FGL_CHECK(canonicalAgain && canonicalAgain.value() == canonical.value());
+
+    FGL_CHECK(
+        !PackageManifestParser::parse("schema=2\nid=bad\ndisplayName=Bad\nversion=1.0.0\nengine=*\n"
+                                      "author=Author\npath=Packages/bad\n"));
+    FGL_CHECK(!PackageManifestParser::parse(
+        "schema=2\nid=bad\ndisplayName=Bad\nversion=1.0.0\nengine=*\n"
+        "author=Author\nlicense=MIT\nentry=runtime-module:../escape.cpp\n"));
+    FGL_CHECK(!PackageManifestParser::parse(
+        "schema=2\nid=bad\ndisplayName=Bad\nversion=1.0.0\nengine=*\n"
+        "author=Author\nlicense=MIT\nexecutable=true\n"
+        "entry=runtime-module:plugin.cpp\nentry=runtime-module:plugin.cpp\n"));
+}
+
+FGL_TEST(package_registry_v2_uses_external_trust_and_engine_compatibility) {
+    auto executable = PackageManifestParser::parse(
+        "schema=2\nid=trusted.claim\ndisplayName=Trust Claim\nversion=1.0.0\n"
+        "engine=^0.1.0\nauthor=Author\nlicense=MIT\ntrust=trusted\nexecutable=true\n"
+        "entry=runtime-module:plugin.cpp\n");
+    FGL_CHECK(executable);
+    PackageRegistry registry;
+    FGL_CHECK(registry.add(executable.value()));
+    auto engine = SemVersion::parse("0.1.7");
+    FGL_CHECK(engine);
+    auto selfClaimBlocked = registry.validate(engine.value(), {});
+    FGL_CHECK(!selfClaimBlocked && selfClaimBlocked.error().code() == ErrorCode::InvalidState);
+    auto externallyTrusted = registry.validate(engine.value(), {"trusted.claim"});
+    FGL_CHECK(externallyTrusted && externallyTrusted.value().size() == 1U);
+
+    auto incompatible = SemVersion::parse("1.0.0");
+    FGL_CHECK(incompatible);
+    auto engineBlocked = registry.validate(incompatible.value(), {"trusted.claim"});
+    FGL_CHECK(!engineBlocked && engineBlocked.error().code() == ErrorCode::UnsupportedVersion);
+}
+
 FGL_TEST(package_registry_detects_missing_versions_and_dependency_cycles) {
     auto version100 = SemVersion::parse("1.0.0").value();
     auto version200 = SemVersion::parse("2.0.0").value();
     auto any = VersionRequirement::parse("*").value();
     auto exact200 = VersionRequirement::parse("2.0.0").value();
+    const auto package = [](std::string name, const SemVersion& version,
+                            std::vector<PackageDependency> dependencies) {
+        PackageManifest manifest;
+        manifest.name = std::move(name);
+        manifest.version = version;
+        manifest.localPath = manifest.name;
+        manifest.trust = PackageTrust::Trusted;
+        manifest.dependencies = std::move(dependencies);
+        return manifest;
+    };
 
     PackageRegistry mismatch;
-    FGL_CHECK(mismatch.add({"base", version100, "base", PackageTrust::Trusted, false, {}}));
-    FGL_CHECK(mismatch.add(
-        {"app", version100, "app", PackageTrust::Trusted, false, {{"base", exact200}}}));
+    FGL_CHECK(mismatch.add(package("base", version100, {})));
+    FGL_CHECK(mismatch.add(package("app", version100, {{"base", exact200}})));
     auto mismatchResult = mismatch.validate(false);
     FGL_CHECK(!mismatchResult && mismatchResult.error().code() == ErrorCode::UnsupportedVersion);
 
     PackageRegistry cycle;
-    FGL_CHECK(
-        cycle.add({"first", version100, "first", PackageTrust::Trusted, false, {{"second", any}}}));
-    FGL_CHECK(cycle.add(
-        {"second", version200, "second", PackageTrust::Trusted, false, {{"first", any}}}));
+    FGL_CHECK(cycle.add(package("first", version100, {{"second", any}})));
+    FGL_CHECK(cycle.add(package("second", version200, {{"first", any}})));
     auto cycleResult = cycle.validate(false);
     FGL_CHECK(!cycleResult && cycleResult.error().code() == ErrorCode::CycleDetected);
 }
@@ -127,7 +215,7 @@ FGL_TEST(builtin_component_registry_contains_all_required_types_and_live_data_co
     ReflectionRegistry registry;
     FGL_CHECK(registerBuiltinComponentTypes(registry));
     FGL_CHECK(registry.size() == builtinComponentNames().size());
-    FGL_CHECK(builtinComponentNames().size() == 28U);
+    FGL_CHECK(builtinComponentNames().size() == 29U);
     for (const auto& name : builtinComponentNames()) {
         FGL_CHECK(registry.find(std::string("fabgl.") + name) != nullptr);
     }

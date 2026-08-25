@@ -70,9 +70,15 @@ template <typename Value> [[nodiscard]] constexpr PropertyType scriptPropertyTyp
     using Type = std::remove_cv_t<Value>;
     if constexpr (std::is_same_v<Type, bool>)
         return PropertyType::Boolean;
-    else if constexpr (std::is_same_v<Type, std::int32_t> || std::is_same_v<Type, std::int64_t>)
+    else if constexpr (std::is_same_v<Type, std::int8_t> ||
+                       std::is_same_v<Type, std::int16_t> ||
+                       std::is_same_v<Type, std::int32_t> ||
+                       std::is_same_v<Type, std::int64_t>)
         return PropertyType::SignedInteger;
-    else if constexpr (std::is_same_v<Type, std::uint32_t> || std::is_same_v<Type, std::uint64_t>)
+    else if constexpr (std::is_same_v<Type, std::uint8_t> ||
+                       std::is_same_v<Type, std::uint16_t> ||
+                       std::is_same_v<Type, std::uint32_t> ||
+                       std::is_same_v<Type, std::uint64_t>)
         return PropertyType::UnsignedInteger;
     else if constexpr (std::is_same_v<Type, float> || std::is_same_v<Type, double>) {
         return PropertyType::Float;
@@ -84,6 +90,10 @@ template <typename Value> [[nodiscard]] constexpr PropertyType scriptPropertyTyp
         return PropertyType::Vec2;
     else if constexpr (std::is_same_v<Type, Vec3>)
         return PropertyType::Vec3;
+    else if constexpr (std::is_same_v<Type, EulerAngles>)
+        return PropertyType::EulerAngles;
+    else if constexpr (std::is_same_v<Type, Quaternion>)
+        return PropertyType::Quaternion;
     else if constexpr (std::is_same_v<Type, Rect>)
         return PropertyType::Rect;
     else if constexpr (std::is_same_v<Type, Color>)
@@ -92,15 +102,30 @@ template <typename Value> [[nodiscard]] constexpr PropertyType scriptPropertyTyp
         return PropertyType::AssetReference;
     else if constexpr (std::is_same_v<Type, EntityGuid>)
         return PropertyType::EntityReference;
+    else if constexpr (std::is_same_v<Type, ComponentReference>)
+        return PropertyType::ComponentReference;
+    else if constexpr (std::is_same_v<Type, PropertyList>)
+        return PropertyType::List;
+    else if constexpr (std::is_same_v<Type, Curve>)
+        return PropertyType::Curve;
+    else if constexpr (std::is_same_v<Type, PropertyAnimationCurve>)
+        return PropertyType::AnimationCurve;
+    else if constexpr (std::is_same_v<Type, ActionReference>)
+        return PropertyType::ActionReference;
+    else if constexpr (std::is_same_v<Type, EventReference>)
+        return PropertyType::EventReference;
     else
         static_assert(AlwaysFalse<Type>, "unsupported gameplay script property type");
 }
 
 template <typename Value> [[nodiscard]] PropertyValue toPropertyValue(const Value& value) {
     using Type = std::remove_cv_t<Value>;
-    if constexpr (std::is_same_v<Type, std::int32_t>) {
+    if constexpr (std::is_same_v<Type, std::int8_t> || std::is_same_v<Type, std::int16_t> ||
+                  std::is_same_v<Type, std::int32_t>) {
         return PropertyValue(static_cast<std::int64_t>(value));
-    } else if constexpr (std::is_same_v<Type, std::uint32_t>) {
+    } else if constexpr (std::is_same_v<Type, std::uint8_t> ||
+                         std::is_same_v<Type, std::uint16_t> ||
+                         std::is_same_v<Type, std::uint32_t>) {
         return PropertyValue(static_cast<std::uint64_t>(value));
     } else if constexpr (std::is_same_v<Type, float>) {
         return PropertyValue(static_cast<double>(value));
@@ -112,7 +137,8 @@ template <typename Value> [[nodiscard]] PropertyValue toPropertyValue(const Valu
 template <typename Value>
 [[nodiscard]] Result<Value> fromPropertyValue(const PropertyValue& value) {
     using Type = std::remove_cv_t<Value>;
-    if constexpr (std::is_same_v<Type, std::int32_t>) {
+    if constexpr (std::is_same_v<Type, std::int8_t> || std::is_same_v<Type, std::int16_t> ||
+                  std::is_same_v<Type, std::int32_t>) {
         if (const auto* stored = std::get_if<std::int64_t>(&value)) {
             if (*stored < static_cast<std::int64_t>(std::numeric_limits<Type>::min()) ||
                 *stored > static_cast<std::int64_t>(std::numeric_limits<Type>::max())) {
@@ -121,7 +147,9 @@ template <typename Value>
             }
             return Result<Value>::success(static_cast<Value>(*stored));
         }
-    } else if constexpr (std::is_same_v<Type, std::uint32_t>) {
+    } else if constexpr (std::is_same_v<Type, std::uint8_t> ||
+                         std::is_same_v<Type, std::uint16_t> ||
+                         std::is_same_v<Type, std::uint32_t>) {
         if (const auto* stored = std::get_if<std::uint64_t>(&value)) {
             if (*stored > static_cast<std::uint64_t>(std::numeric_limits<Type>::max())) {
                 return Result<Value>::failure(
@@ -161,6 +189,9 @@ scriptProperty(std::string name, Value Script::*member, Value defaultValue,
     property.type = detail::scriptPropertyType<Value>();
     property.flags = flags;
     property.defaultValue = detail::toPropertyValue(defaultValue);
+    if constexpr (std::is_same_v<std::remove_cv_t<Value>, PropertyList>) {
+        property.listElementType = defaultValue.elementType;
+    }
     property.category = std::move(category);
     property.reader = [member](const void* instance) {
         const auto* script = static_cast<const Script*>(instance);

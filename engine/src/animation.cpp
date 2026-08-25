@@ -170,18 +170,93 @@ Result<void> AnimatorController::addState(std::string name,
 
 Result<void> AnimatorController::addTransition(AnimationTransition transition) {
     if (states_.find(transition.fromState) == states_.end() ||
-        states_.find(transition.toState) == states_.end() || transition.booleanParameter.empty() ||
+        states_.find(transition.toState) == states_.end() ||
+        (transition.booleanParameter.empty() && transition.conditions.empty() &&
+         !transition.hasExitTime) ||
         !std::isfinite(transition.minimumNormalizedTime) ||
-        transition.minimumNormalizedTime < 0.0F) {
+        transition.minimumNormalizedTime < 0.0F || !std::isfinite(transition.exitTime) ||
+        transition.exitTime < 0.0F || !std::isfinite(transition.blendDurationSeconds) ||
+        transition.blendDurationSeconds < 0.0F) {
         return Result<void>::failure(
             Error(ErrorCode::InvalidArgument, "animator transition is invalid"));
+    }
+    for (const auto& condition : transition.conditions) {
+        if (condition.parameter.empty() || !std::isfinite(condition.floatValue)) {
+            return Result<void>::failure(
+                Error(ErrorCode::InvalidArgument, "animator transition condition is invalid"));
+        }
     }
     transitions_.push_back(std::move(transition));
     return Result<void>::success();
 }
 
 void AnimatorController::setBoolean(std::string name, bool value) {
+    if (name.empty())
+        return;
     booleans_[std::move(name)] = value;
+}
+
+void AnimatorController::setInteger(std::string name, std::int64_t value) {
+    if (name.empty())
+        return;
+    integers_[std::move(name)] = value;
+}
+
+void AnimatorController::setFloat(std::string name, float value) {
+    if (name.empty() || !std::isfinite(value))
+        return;
+    floats_[std::move(name)] = value;
+}
+
+void AnimatorController::setTrigger(std::string name) {
+    if (!name.empty())
+        triggers_.insert(std::move(name));
+}
+
+void AnimatorController::resetTrigger(std::string_view name) {
+    triggers_.erase(std::string(name));
+}
+
+bool AnimatorController::conditionSatisfied(const AnimationCondition& condition) const noexcept {
+    switch (condition.mode) {
+    case AnimationConditionMode::BooleanEquals: {
+        const auto iterator = booleans_.find(condition.parameter);
+        const bool value = iterator != booleans_.end() && iterator->second;
+        return value == condition.booleanValue;
+    }
+    case AnimationConditionMode::IntegerEquals:
+    case AnimationConditionMode::IntegerNotEquals:
+    case AnimationConditionMode::IntegerGreater:
+    case AnimationConditionMode::IntegerLess: {
+        const auto iterator = integers_.find(condition.parameter);
+        const auto value = iterator == integers_.end() ? std::int64_t{0} : iterator->second;
+        if (condition.mode == AnimationConditionMode::IntegerEquals)
+            return value == condition.integerValue;
+        if (condition.mode == AnimationConditionMode::IntegerNotEquals)
+            return value != condition.integerValue;
+        if (condition.mode == AnimationConditionMode::IntegerGreater)
+            return value > condition.integerValue;
+        return value < condition.integerValue;
+    }
+    case AnimationConditionMode::FloatGreater:
+    case AnimationConditionMode::FloatLess: {
+        const auto iterator = floats_.find(condition.parameter);
+        const auto value = iterator == floats_.end() ? 0.0F : iterator->second;
+        return condition.mode == AnimationConditionMode::FloatGreater
+                   ? value > condition.floatValue
+                   : value < condition.floatValue;
+    }
+    case AnimationConditionMode::TriggerSet:
+        return triggers_.find(condition.parameter) != triggers_.end();
+    }
+    return false;
+}
+
+void AnimatorController::consumeTriggers(const AnimationTransition& transition) {
+    for (const auto& condition : transition.conditions) {
+        if (condition.mode == AnimationConditionMode::TriggerSet)
+            triggers_.erase(condition.parameter);
+    }
 }
 
 Result<void> AnimatorController::play(std::string_view state) {
@@ -192,6 +267,7 @@ Result<void> AnimatorController::play(std::string_view state) {
     }
     currentState_ = iterator->first;
     stateTime_ = 0.0F;
+    activeBlend_.reset();
     return Result<void>::success();
 }
 
@@ -200,10 +276,15 @@ Result<AnimationFrame> AnimatorController::update(float deltaSeconds) {
         return Result<AnimationFrame>::failure(
             Error(ErrorCode::InvalidArgument, "animation delta is invalid"));
     }
-    const auto current = states_.find(currentState_);
+    auto current = states_.find(currentState_);
     if (current == states_.end()) {
         return Result<AnimationFrame>::failure(
             Error(ErrorCode::InvalidState, "animator has no current state"));
+    }
+
+    if (activeBlend_) {
+        activeBlend_->sourceTime += deltaSeconds;
+        activeBlend_->elapsed += deltaSeconds;
     }
 
     const auto previousTime = stateTime_;
@@ -212,29 +293,61 @@ Result<AnimationFrame> AnimatorController::update(float deltaSeconds) {
     frame.state = currentState_;
     frame.events = current->second.clip->eventsCrossed(previousTime, stateTime_);
 
-    const auto local = current->second.clip->looping()
-                           ? std::fmod(stateTime_, current->second.clip->duration())
-                           : std::min(stateTime_, current->second.clip->duration());
-    const auto normalized = local / current->second.clip->duration();
-    for (const auto& transition : transitions_) {
-        if (transition.fromState != currentState_ || normalized < transition.minimumNormalizedTime)
-            continue;
-        const auto parameter = booleans_.find(transition.booleanParameter);
-        const bool value = parameter != booleans_.end() && parameter->second;
-        if (value != transition.expectedValue)
-            continue;
-        currentState_ = transition.toState;
-        stateTime_ = 0.0F;
-        frame.transitioned = true;
-        frame.state = currentState_;
-        break;
+    const auto normalized = stateTime_ / current->second.clip->duration();
+    if (!activeBlend_) {
+        for (const auto& transition : transitions_) {
+            if (transition.fromState != currentState_ ||
+                normalized < transition.minimumNormalizedTime ||
+                (transition.hasExitTime && normalized < transition.exitTime)) {
+                continue;
+            }
+            if (!transition.booleanParameter.empty()) {
+                const auto parameter = booleans_.find(transition.booleanParameter);
+                const bool value = parameter != booleans_.end() && parameter->second;
+                if (value != transition.expectedValue)
+                    continue;
+            }
+            if (!std::all_of(transition.conditions.begin(), transition.conditions.end(),
+                             [this](const AnimationCondition& condition) {
+                                 return conditionSatisfied(condition);
+                             })) {
+                continue;
+            }
+
+            auto sourceClip = current->second.clip;
+            const auto sourceTime = stateTime_;
+            currentState_ = transition.toState;
+            stateTime_ = 0.0F;
+            if (transition.blendDurationSeconds > 0.0F) {
+                activeBlend_ = ActiveBlend{std::move(sourceClip), sourceTime, 0.0F,
+                                           transition.blendDurationSeconds};
+            }
+            consumeTriggers(transition);
+            frame.transitioned = true;
+            frame.state = currentState_;
+            break;
+        }
     }
 
     const auto finalState = states_.find(currentState_);
     frame.localTime = finalState->second.clip->looping()
                           ? std::fmod(stateTime_, finalState->second.clip->duration())
                           : std::min(stateTime_, finalState->second.clip->duration());
-    frame.values = finalState->second.clip->sample(stateTime_);
+    const auto targetValues = finalState->second.clip->sample(stateTime_);
+    if (!activeBlend_) {
+        frame.values = targetValues;
+    } else {
+        const auto weight =
+            std::clamp(activeBlend_->elapsed / activeBlend_->duration, 0.0F, 1.0F);
+        frame.blendWeight = weight;
+        const auto sourceValues = activeBlend_->source->sample(activeBlend_->sourceTime);
+        for (const auto& [property, value] : sourceValues)
+            frame.values[property] = value * (1.0F - weight);
+        for (const auto& [property, value] : targetValues)
+            frame.values[property] += value * weight;
+        if (weight >= 1.0F)
+            activeBlend_.reset();
+    }
     return Result<AnimationFrame>::success(std::move(frame));
 }
 

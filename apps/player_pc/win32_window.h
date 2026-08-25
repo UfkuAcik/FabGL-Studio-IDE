@@ -33,6 +33,11 @@ class Win32Window final {
     std::vector<std::uint32_t> pixels_;
     BITMAPINFO bitmapInfo_{};
     bool running_ = false;
+    POINT previousCursor_{};
+    bool hasPreviousCursor_ = false;
+    int wheelDelta_ = 0;
+    HMODULE xinputModule_ = nullptr;
+    FARPROC xinputGetState_ = nullptr;
 };
 
 } // namespace fabgl::player

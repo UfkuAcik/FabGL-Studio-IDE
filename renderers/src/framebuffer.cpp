@@ -128,6 +128,33 @@ void Framebuffer::fillTriangle(Vec2 a, Vec2 b, Vec2 c, Color color) noexcept {
     }
 }
 
+void Framebuffer::fillTriangleBlended(Vec2 a, Vec2 b, Vec2 c, Color color) noexcept {
+    const auto area = edge(a, b, c);
+    if (std::fabs(area) < std::numeric_limits<float>::epsilon()) {
+        return;
+    }
+    const auto minimumX = std::max(0, static_cast<int>(std::floor(std::min({a.x, b.x, c.x}))));
+    const auto maximumX =
+        std::min(width_ - 1, static_cast<int>(std::ceil(std::max({a.x, b.x, c.x}))));
+    const auto minimumY = std::max(0, static_cast<int>(std::floor(std::min({a.y, b.y, c.y}))));
+    const auto maximumY =
+        std::min(height_ - 1, static_cast<int>(std::ceil(std::max({a.y, b.y, c.y}))));
+    const auto positiveArea = area > 0.0F;
+    for (auto y = minimumY; y <= maximumY; ++y) {
+        for (auto x = minimumX; x <= maximumX; ++x) {
+            const Vec2 sample{static_cast<float>(x) + 0.5F, static_cast<float>(y) + 0.5F};
+            const auto first = edge(a, b, sample);
+            const auto second = edge(b, c, sample);
+            const auto third = edge(c, a, sample);
+            const auto inside = positiveArea ? first >= 0.0F && second >= 0.0F && third >= 0.0F
+                                             : first <= 0.0F && second <= 0.0F && third <= 0.0F;
+            if (inside) {
+                blendPixel(x, y, color);
+            }
+        }
+    }
+}
+
 bool Framebuffer::savePpm(const std::string& path, std::string& error) const {
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     if (!output) {

@@ -52,6 +52,25 @@ struct Vec3 final {
     }
 };
 
+// Explicit orientation value types keep reflected rotation properties distinct from
+// ordinary vectors while the runtime remains free to use its preferred representation.
+struct EulerAngles final {
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
+
+    friend constexpr bool operator==(const EulerAngles&, const EulerAngles&) noexcept = default;
+};
+
+struct Quaternion final {
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
+    float w = 1.0F;
+
+    friend constexpr bool operator==(const Quaternion&, const Quaternion&) noexcept = default;
+};
+
 struct Rect final {
     float x = 0.0F;
     float y = 0.0F;

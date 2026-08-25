@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000008
 scene_name "Audio Showcase"
 entity_begin
@@ -6,26 +6,76 @@ guid 30000000-0000-4000-8000-000000000008
 name "AudioListener"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id f53294b2-185c-5b53-b429-659ab5c32070
+type_name "fabgl.AudioListener"
+enabled 1
+property_count 1
+property "enabled" bool 1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000018
 name "MusicSource"
 active 1
 parent nil
-position -1 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 -1 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id a6b0721d-1b6f-57c0-8ba3-1834d3bf411b
+type_name "fabgl.AudioSource"
+enabled 1
+property_count 5
+property "enabled" bool 1
+property "clip" asset 50000000-0000-4000-8000-000000000008
+property "volume" float 0.65000000000000002
+property "pitch" float 1
+property "loop" bool 1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000028
 name "SfxSource"
 active 1
 parent nil
-position 1 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 1 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id a6b0721d-1b6f-57c0-8ba3-1834d3bf411b
+type_name "fabgl.AudioSource"
+enabled 1
+property_count 5
+property "enabled" bool 1
+property "clip" asset 50000000-0000-4000-8000-000000000008
+property "volume" float 0.90000000000000002
+property "pitch" float 1.1499999999999999
+property "loop" bool 0
+component_end
 entity_end
 scene_end

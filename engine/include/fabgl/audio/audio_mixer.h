@@ -2,6 +2,7 @@
 
 #include "fabgl/core/result.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -35,12 +36,19 @@ struct AudioVoiceId final {
     }
 };
 
-// The sample storage must remain alive while a voice using this view is active.
+using AudioFrameReader = std::size_t (*)(const void* context, std::size_t firstFrame,
+                                         float* interleavedOutput, std::size_t frameCount) noexcept;
+
+// The sample storage or reader context must remain alive while a voice using
+// this view is active. A clip can be memory-backed (interleavedSamples) or use
+// an allocation-free bounded frame reader (frameReader).
 struct AudioClipView final {
     const float* interleavedSamples = nullptr;
     std::size_t frameCount = 0;
     std::uint8_t channelCount = 1;
     std::uint32_t sampleRate = 0;
+    const void* readerContext = nullptr;
+    AudioFrameReader frameReader = nullptr;
 };
 
 struct AudioBusSettings final {
@@ -72,6 +80,9 @@ struct AudioMixerStats final {
     std::uint64_t voicesStolen = 0;
     std::uint64_t voicesRejected = 0;
     std::uint64_t mixedFrames = 0;
+    std::uint64_t streamCacheRefills = 0;
+    std::uint64_t streamedFrames = 0;
+    std::uint64_t streamUnderruns = 0;
 };
 
 class IAudioOutputBackend {
@@ -133,11 +144,16 @@ class AudioMixer final {
     };
 
     struct Voice final {
+        static constexpr std::size_t StreamCacheFrames = 128U;
+
         AudioVoiceId id{};
         AudioClipView clip{};
         AudioVoiceSettings settings{};
         double framePosition = 0.0;
         std::uint64_t startSequence = 0;
+        std::array<float, StreamCacheFrames * 2U> streamCache{};
+        std::size_t streamCacheFirstFrame = 0U;
+        std::size_t streamCacheFrameCount = 0U;
         bool active = false;
     };
 
@@ -147,6 +163,7 @@ class AudioMixer final {
     [[nodiscard]] const Voice* findVoice(AudioVoiceId id) const noexcept;
     [[nodiscard]] AudioVoiceId allocateVoiceId() noexcept;
     void deactivate(Voice& voice) noexcept;
+    [[nodiscard]] float readSample(Voice& voice, std::size_t frame, std::size_t channel) noexcept;
     void mixVoice(Voice& voice, float* output, std::size_t frameCount) noexcept;
 
     AudioMixerConfig config_{};
@@ -161,6 +178,9 @@ class AudioMixer final {
     std::uint64_t voicesStolen_ = 0;
     std::uint64_t voicesRejected_ = 0;
     std::uint64_t mixedFrames_ = 0;
+    std::uint64_t streamCacheRefills_ = 0;
+    std::uint64_t streamedFrames_ = 0;
+    std::uint64_t streamUnderruns_ = 0;
 };
 
 } // namespace fabgl

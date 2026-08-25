@@ -1,7 +1,16 @@
-add_library(fabgl_project_model STATIC project_format.cpp script_generator.cpp)
+add_library(fabgl_project_model STATIC
+  esp32_capabilities.cpp
+  esp32_export.cpp
+  local_package_manager.cpp
+  project_format.cpp
+  project_input_map.cpp
+  project_prepare.cpp
+  script_generator.cpp
+)
 target_include_directories(fabgl_project_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../common)
-target_link_libraries(fabgl_project_model PUBLIC fabgl_engine fabgl_asset_pipeline)
+target_link_libraries(fabgl_project_model PUBLIC fabgl_engine fabgl_asset_pipeline fabgl_renderers)
 target_compile_features(fabgl_project_model PUBLIC cxx_std_20)
+target_compile_definitions(fabgl_project_model PRIVATE FABGL_STUDIO_ENGINE_VERSION="${PROJECT_VERSION}")
 fgl_enable_warnings(fabgl_project_model)
 fgl_enable_sanitizers(fabgl_project_model)
 

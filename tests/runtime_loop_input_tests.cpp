@@ -40,12 +40,20 @@ FGL_TEST(engine_loop_runs_all_phases_with_fixed_accumulation_and_metrics) {
         phases.push_back("variable");
         return Result<void>::success();
     };
+    callbacks.aiUpdate = [&phases](double) {
+        phases.push_back("ai");
+        return Result<void>::success();
+    };
     callbacks.animationUpdate = [&phases](double) {
         phases.push_back("animation");
         return Result<void>::success();
     };
     callbacks.audioUpdate = [&phases](double) {
         phases.push_back("audio");
+        return Result<void>::success();
+    };
+    callbacks.assetStreamingUpdate = [&phases](double) {
+        phases.push_back("streaming");
         return Result<void>::success();
     };
     callbacks.renderSubmission = [&phases](double alpha) {
@@ -72,9 +80,21 @@ FGL_TEST(engine_loop_runs_all_phases_with_fixed_accumulation_and_metrics) {
     FGL_CHECK(!first.value().catchUpLimited);
     FGL_CHECK_NEAR(first.value().accumulatorSeconds, 0.05, 0.00001F);
     FGL_CHECK(first.value().measuredCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().profiledCpuSeconds() >= 0.0);
+    FGL_CHECK(first.value().profiledCpuSeconds() <= first.value().measuredCpuSeconds + 0.000001);
+    FGL_CHECK(first.value().fixedUpdateCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().physicsCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().updateCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().aiCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().animationCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().audioCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().assetStreamingCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().renderSubmissionCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().renderingCpuSeconds >= 0.0);
+    FGL_CHECK(first.value().presentCpuSeconds >= 0.0);
     const std::vector<std::string> expected{
-        "initialize", "resources", "scene", "fixed",  "physics", "fixed",  "physics",
-        "variable",   "animation", "audio", "submit", "render",  "present"};
+        "initialize", "resources", "scene", "fixed",     "physics", "fixed",  "physics", "variable",
+        "ai",         "animation", "audio", "streaming", "submit",  "render", "present"};
     FGL_CHECK(phases == expected);
 
     auto limited = loop.tick(0.55);
@@ -102,6 +122,58 @@ FGL_TEST(engine_loop_validates_state_config_and_phase_failures) {
     auto initialized = loop.initialize();
     FGL_CHECK(!initialized);
     FGL_CHECK(initialized.error().context().back().value == "scene_loading");
+}
+
+FGL_TEST(engine_loop_rolls_back_initialized_state_when_resource_or_scene_loading_fails) {
+    {
+        EngineLoop loop;
+        int initializeCount = 0;
+        int shutdownCount = 0;
+        EngineLoopCallbacks callbacks;
+        callbacks.initialize = [&initializeCount] {
+            ++initializeCount;
+            return Result<void>::success();
+        };
+        callbacks.loadResources = [] {
+            return Result<void>::failure(Error(ErrorCode::IoError, "resources unavailable"));
+        };
+        callbacks.shutdown = [&shutdownCount] { ++shutdownCount; };
+        loop.setCallbacks(std::move(callbacks));
+
+        auto initialized = loop.initialize();
+        FGL_CHECK(!initialized);
+        FGL_CHECK(initialized.error().context().back().value == "resource_loading");
+        FGL_CHECK(initializeCount == 1);
+        FGL_CHECK(shutdownCount == 1);
+        FGL_CHECK(!loop.initialized());
+        FGL_CHECK(!loop.tick(0.1));
+        loop.shutdown();
+        FGL_CHECK(shutdownCount == 1);
+    }
+
+    {
+        EngineLoop loop;
+        int resourcesCount = 0;
+        int shutdownCount = 0;
+        EngineLoopCallbacks callbacks;
+        callbacks.initialize = [] { return Result<void>::success(); };
+        callbacks.loadResources = [&resourcesCount] {
+            ++resourcesCount;
+            return Result<void>::success();
+        };
+        callbacks.loadScene = [] {
+            return Result<void>::failure(Error(ErrorCode::NotFound, "scene unavailable"));
+        };
+        callbacks.shutdown = [&shutdownCount] { ++shutdownCount; };
+        loop.setCallbacks(std::move(callbacks));
+
+        auto initialized = loop.initialize();
+        FGL_CHECK(!initialized);
+        FGL_CHECK(initialized.error().context().back().value == "scene_loading");
+        FGL_CHECK(resourcesCount == 1);
+        FGL_CHECK(shutdownCount == 1);
+        FGL_CHECK(!loop.initialized());
+    }
 }
 
 FGL_TEST(input_map_tracks_actions_axes_rebinding_and_edges) {
@@ -158,4 +230,22 @@ FGL_TEST(input_context_priority_overrides_lower_context_and_can_be_disabled) {
     FGL_CHECK(input.action("Accept").held);
     FGL_CHECK(!input.rebindAxis("missing", "Move", 0, {"Key.A"}));
     FGL_CHECK(!input.setControlValue("bad", std::numeric_limits<float>::infinity()));
+}
+
+FGL_TEST(input_axis_applies_binding_dead_zone_and_sensitivity) {
+    InputMap input;
+    FGL_CHECK(input.defineContext("gameplay", 1));
+    FGL_CHECK(input.bindAxis("gameplay", "LookX", {"Gamepad.RightX", 1.5F, 0.2F}));
+
+    FGL_CHECK(input.setControlValue("Gamepad.RightX", 0.1F));
+    input.update();
+    FGL_CHECK_NEAR(input.axis("LookX"), 0.0F, 0.0001F);
+
+    FGL_CHECK(input.setControlValue("Gamepad.RightX", 0.5F));
+    input.update();
+    FGL_CHECK_NEAR(input.axis("LookX"), 0.75F, 0.0001F);
+
+    FGL_CHECK(input.setControlValue("Gamepad.RightX", -0.9F));
+    input.update();
+    FGL_CHECK_NEAR(input.axis("LookX"), -1.0F, 0.0001F);
 }

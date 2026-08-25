@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000010
 scene_name "Asset Streaming Showcase"
 entity_begin
@@ -6,17 +6,60 @@ guid 30000000-0000-4000-8000-000000000010
 name "StreamingManager"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 16b69996-8e25-554a-8931-b68ef0354306
+type_name "fabgl.Camera"
+enabled 1
+property_count 6
+property "enabled" bool 1
+property "orthographic" bool 1
+property "size" float 5
+property "clearColor" color 14 22 30 255
+property "viewport" rect 0 0 1 1
+property "projection" enum 0
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000020
 name "ChunkViewport"
 active 1
 parent nil
-position 160 90 0
-rotation 0 0 0
-scale 1 1 1
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 160 90 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 449d29b3-e588-5d26-b920-6375cc10dd1b
+type_name "fabgl.TilemapRenderer"
+enabled 1
+property_count 2
+property "enabled" bool 1
+property "tilemap" asset 50000000-0000-4000-8000-000000000010
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 51000000-0000-4000-8000-000000000010
+property "tint" color 255 236 100 255
+component_end
 entity_end
 scene_end

@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000009
 scene_name "Animation Showcase"
 entity_begin
@@ -6,17 +6,80 @@ guid 30000000-0000-4000-8000-000000000009
 name "AnimatedSprite"
 active 1
 parent nil
-position 160 90 0
-rotation 0 0 0
-scale 1 1 1
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 160 90 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id cb1e1a1b-bd20-516d-9a6c-53ec2b9445d3
+type_name "fabgl.ParticleEmitter"
+enabled 1
+property_count 15
+property "enabled" bool 1
+property "rate" float 24
+property "maxParticles" uint 128
+property "burstOnStart" uint 12
+property "lifetime" float 1.5
+property "velocity" vec2 0 -14
+property "acceleration" vec2 0 18
+property "startColor" color 255 220 96 255
+property "endColor" color 255 80 48 0
+property "startSize" float 2
+property "endSize" float 0.25
+property "startRotation" float 0
+property "endRotation" float 1.5
+property "cullOutsideBounds" bool 1
+property "cullingBounds" rect 0 0 320 180
+component_end
+component_begin
+type_id bc3cdc9e-5d8f-5fe8-af42-7dd8e78ef481
+type_name "fabgl.PrefabInstanceLink"
+enabled 1
+property_count 2
+property "enabled" bool 1
+property "state" string "fglprefabinstance 1\\nprefab_guid 54000000-0000-4000-8000-000000000009\\nroot_guid 30000000-0000-4000-8000-000000000009\\nmissing 0\\nentity_count 2\\nentity 30000000-0000-4000-8000-000000000009\\nentity 30000000-0000-4000-8000-000000000019\\nmapping_count 2\\nmapping 31000000-0000-4000-8000-000000000009 30000000-0000-4000-8000-000000000009\\nmapping 31000000-0000-4000-8000-000000000019 30000000-0000-4000-8000-000000000019\\nremoved_count 0\\noverrides_bytes 332\\nfglprefab 2\\nasset_guid 54000000-0000-4000-8000-000000000009\\nname \"FabGL Prefab Instance Property Overrides\"\\nnested_base nil\\nroot_component_count 1\\ncomponent_begin\\ntype_id cb1e1a1b-bd20-516d-9a6c-53ec2b9445d3\\ntype_name \"fabgl.PrefabPropertyOverrides\"\\nproperty_count 1\\nproperty \"rate\" float 24\\ncomponent_end\\nentity_count 0\\nprefab_end\\nadded_bytes 171\\nfglprefab 2\\nasset_guid 54000000-0000-4000-8000-000000000009\\nname \"FabGL Prefab Instance Added Components\"\\nnested_base nil\\nroot_component_count 0\\nentity_count 0\\nprefab_end\\ninstance_end\\n"
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000019
 name "Animator"
 active 1
 parent 30000000-0000-4000-8000-000000000009
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 50000000-0000-4000-8000-000000000009
+property "tint" color 255 210 104 255
+component_end
+component_begin
+type_id c8a100cb-8d3e-5ce2-bb67-c68e09ad5b0d
+type_name "fabgl.Animator"
+enabled 1
+property_count 5
+property "enabled" bool 1
+property "controller" asset 52000000-0000-4000-8000-000000000009
+property "initialState" string "idle"
+property "speed" float 1
+property "playing" bool 1
+component_end
 entity_end
 scene_end

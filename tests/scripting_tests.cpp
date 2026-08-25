@@ -2,10 +2,14 @@
 
 #include "fabgl/scene/scene.h"
 #include "fabgl/scripting/script_component.h"
+#include "fabgl/scripting/script_module.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string>
+#include <string_view>
 
 using namespace fabgl;
 
@@ -43,6 +47,8 @@ class PlayerMover final : public scripting::ScriptComponent {
 
 } // namespace
 
+FABGL_REGISTER_SCRIPT(PlayerMover)
+
 FGL_TEST(gameplay_script_properties_are_reflected_and_type_checked) {
     PlayerMover script;
     FGL_CHECK(script.apiCompatible());
@@ -75,4 +81,20 @@ FGL_TEST(gameplay_api_version_rejects_incompatible_requests) {
     FGL_CHECK(scripting::isApiCompatible({0, 1, 9}));
     FGL_CHECK(!scripting::isApiCompatible({0, 2, 0}));
     FGL_CHECK(!scripting::isApiCompatible({1, 0, 0}));
+}
+
+FGL_TEST(gameplay_script_module_exports_registered_factories_with_v1_abi) {
+    scripting::ScriptModuleView view;
+    FGL_CHECK(scripting::detail::exportRegisteredScriptModule(&view));
+    FGL_CHECK(view.abiVersion == scripting::ScriptModuleAbiVersion);
+    FGL_CHECK(view.descriptorCount >= 1U);
+    const auto* descriptor = std::find_if(
+        view.descriptors, view.descriptors + view.descriptorCount,
+        [](const auto& candidate) { return std::string_view(candidate.typeName) == "sample.PlayerMover"; });
+    FGL_CHECK(descriptor != view.descriptors + view.descriptorCount);
+    FGL_CHECK(descriptor->structureSize == sizeof(scripting::ScriptModuleDescriptor));
+    std::unique_ptr<Component> instance(descriptor->create());
+    FGL_CHECK(instance != nullptr);
+    FGL_CHECK(instance->typeId() == descriptor->typeId);
+    FGL_CHECK(instance->typeName() == "sample.PlayerMover");
 }

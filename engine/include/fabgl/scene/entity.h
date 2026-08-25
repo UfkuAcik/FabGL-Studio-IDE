@@ -64,6 +64,9 @@ class Entity final {
         return Result<T*>::success(raw);
     }
 
+    [[nodiscard]] Result<Component*> addComponent(std::unique_ptr<Component> component);
+    [[nodiscard]] Result<void> removeComponent(ComponentTypeGuid typeId);
+
     template <typename T> [[nodiscard]] T* getComponent() noexcept {
         static_assert(std::is_base_of_v<Component, T>, "T must derive from Component");
         for (const auto& component : components_) {

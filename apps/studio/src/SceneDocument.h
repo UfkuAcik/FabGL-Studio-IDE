@@ -2,6 +2,7 @@
 
 #include <fabgl/core/guid.h>
 #include <fabgl/math/types.h>
+#include <fabgl/reflection/reflection.h>
 #include <fabgl/scene/scene.h>
 
 #include <QObject>
@@ -9,9 +10,18 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace fgl::studio {
+
+struct ComponentSnapshot final {
+    fabgl::ComponentTypeGuid typeId;
+    QString typeName;
+    bool enabled = true;
+    std::vector<std::pair<std::string, fabgl::PropertyValue>> properties;
+};
 
 struct EntitySnapshot final {
     fabgl::EntityGuid id;
@@ -22,6 +32,7 @@ struct EntitySnapshot final {
     fabgl::Vec3 scale{1.0F, 1.0F, 1.0F};
     std::optional<fabgl::EntityGuid> parent;
     std::vector<fabgl::EntityGuid> children;
+    std::vector<ComponentSnapshot> components;
 };
 
 class SceneDocument final : public QObject {
@@ -40,7 +51,28 @@ class SceneDocument final : public QObject {
     [[nodiscard]] bool save(QString& errorMessage);
     [[nodiscard]] bool saveAs(const QString& filePath, QString& errorMessage);
     [[nodiscard]] QByteArray serialized(QString& errorMessage) const;
+    [[nodiscard]] bool restoreSerialized(const QByteArray& bytes, QString& errorMessage,
+                                         bool markModified = true);
     [[nodiscard]] std::unique_ptr<fabgl::Scene> cloneScene(QString& errorMessage) const;
+
+    [[nodiscard]] const fabgl::ReflectionRegistry& reflectionRegistry() const noexcept;
+    [[nodiscard]] std::optional<ComponentSnapshot>
+    componentSnapshot(fabgl::EntityGuid entityId, fabgl::ComponentTypeGuid typeId,
+                      QString& errorMessage) const;
+    [[nodiscard]] bool addBuiltinComponent(fabgl::EntityGuid entityId, const QString& typeName,
+                                           QString& errorMessage);
+    [[nodiscard]] bool restoreComponent(fabgl::EntityGuid entityId,
+                                        const ComponentSnapshot& snapshot, QString& errorMessage);
+    [[nodiscard]] bool removeComponent(fabgl::EntityGuid entityId, fabgl::ComponentTypeGuid typeId,
+                                       QString& errorMessage);
+    [[nodiscard]] std::optional<fabgl::PropertyValue>
+    componentProperty(fabgl::EntityGuid entityId, fabgl::ComponentTypeGuid typeId,
+                      const std::string& propertyName, QString& errorMessage) const;
+    [[nodiscard]] bool setComponentProperty(fabgl::EntityGuid entityId,
+                                            fabgl::ComponentTypeGuid typeId,
+                                            const std::string& propertyName,
+                                            const fabgl::PropertyValue& value,
+                                            QString& errorMessage, bool markModified = true);
 
     [[nodiscard]] std::optional<EntitySnapshot> snapshot(fabgl::EntityGuid id) const;
     [[nodiscard]] bool restoreEntity(const EntitySnapshot& snapshot, QString& errorMessage);
@@ -48,6 +80,8 @@ class SceneDocument final : public QObject {
     [[nodiscard]] bool applySnapshot(const EntitySnapshot& snapshot, QString& errorMessage,
                                      bool markModified = true);
     void previewPosition(fabgl::EntityGuid id, fabgl::Vec3 position);
+    void previewRotation(fabgl::EntityGuid id, fabgl::Vec3 rotation);
+    void previewScale(fabgl::EntityGuid id, fabgl::Vec3 scale);
     void setModified(bool modified);
 
     [[nodiscard]] static QString guidString(fabgl::EntityGuid id);
@@ -64,6 +98,7 @@ class SceneDocument final : public QObject {
     [[nodiscard]] static QString errorText(const fabgl::Error& error);
 
     std::unique_ptr<fabgl::Scene> m_scene;
+    fabgl::ReflectionRegistry m_reflectionRegistry;
     QString m_filePath;
     bool m_modified = false;
 };

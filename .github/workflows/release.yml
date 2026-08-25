@@ -1,0 +1,139 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    name: Windows portable, installer, source, and checksums
+    runs-on: windows-2022
+    timeout-minutes: 75
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache the locked Qt SDK and aqtinstall
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            .downloads/desktop
+            .toolchains/python-packages
+            .toolchains/Qt
+            .toolchains/NSIS
+          key: windows-desktop-${{ hashFiles('toolchains/desktop-manifest.json') }}
+
+      - name: Build and require the complete release package set
+        shell: powershell
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v([0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw "Unexpected release tag: $tag"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File scripts/build_desktop.ps1 `
+            -Configuration Release `
+            -Version $Matches[1] `
+            -PackageDirectory out/packages/release `
+            -Clean `
+            -RunGuiSmoke `
+            -RequireInstaller `
+            -Jobs 2
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The locked release build failed.'
+          }
+
+      - name: Create the matching source archive
+        shell: powershell
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v([0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw "Unexpected release tag: $tag"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File packaging/build-source-package.ps1 `
+            -Version $Matches[1] `
+            -OutputDirectory out/packages/release
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Source package creation failed.'
+          }
+
+      - name: Refuse an incomplete artifact set
+        shell: powershell
+        run: |
+          $directory = (Resolve-Path 'out/packages/release').Path
+          $portable = @(Get-ChildItem -LiteralPath $directory -File | Where-Object {
+            $_.Name -like 'FabGL-Studio-*-Windows-*.zip' -and
+            $_.Name -notlike '*-source.zip'
+          })
+          $installer = @(Get-ChildItem -LiteralPath $directory -File | Where-Object {
+            $_.Name -like 'FabGL-Studio-*-Windows-*.exe'
+          })
+          $source = @(Get-ChildItem -LiteralPath $directory -File | Where-Object {
+            $_.Name -like 'FabGL-Studio-*-source.zip'
+          })
+          foreach ($set in @($portable, $installer, $source)) {
+            if ($set.Count -ne 1) {
+              throw 'Release requires exactly one portable ZIP, installer, and source ZIP.'
+            }
+          }
+          foreach ($artifact in @($portable[0], $installer[0], $source[0])) {
+            $checksum = "$($artifact.FullName).sha256"
+            if (-not (Test-Path -LiteralPath $checksum -PathType Leaf)) {
+              throw "Release checksum is missing: $checksum"
+            }
+            $expected = (Get-Content -LiteralPath $checksum -Raw).Trim().Split()[0]
+            $actual = (Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash
+            if ($expected -notmatch '^[0-9A-Fa-f]{64}$' -or
+                $actual -ne $expected) {
+              throw "Release checksum validation failed: $($artifact.Name)"
+            }
+          }
+
+      - name: Upload the audited release artifact set
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fabgl-studio-release-${{ github.ref_name }}
+          path: |
+            out/packages/release/FabGL-Studio-*-Windows-*.zip
+            out/packages/release/FabGL-Studio-*-Windows-*.zip.sha256
+            out/packages/release/FabGL-Studio-*-Windows-*.exe
+            out/packages/release/FabGL-Studio-*-Windows-*.exe.sha256
+            out/packages/release/FabGL-Studio-*-source.zip
+            out/packages/release/FabGL-Studio-*-source.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish the GitHub release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $directory = (Resolve-Path 'out/packages/release').Path
+          $assets = @(Get-ChildItem -LiteralPath $directory -File | Where-Object {
+            $_.Name -like 'FabGL-Studio-*.zip' -or
+            $_.Name -like 'FabGL-Studio-*.exe' -or
+            $_.Name -like 'FabGL-Studio-*.sha256'
+          } | Sort-Object Name | ForEach-Object { $_.FullName })
+          if ($assets.Count -ne 6) {
+            throw "Expected six release files; found $($assets.Count)."
+          }
+          $arguments = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            '--verify-tag', '--generate-notes',
+            '--title', "FabGL Studio $env:GITHUB_REF_NAME"
+          ) + $assets
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw 'GitHub release publication failed.'
+          }

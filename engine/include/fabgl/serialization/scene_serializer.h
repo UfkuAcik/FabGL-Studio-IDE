@@ -12,7 +12,7 @@ class Scene;
 
 class SceneSerializer final {
   public:
-    static constexpr int CurrentVersion = 1;
+    static constexpr int CurrentVersion = 2;
 
     [[nodiscard]] static Result<std::string> serialize(const Scene& scene);
     [[nodiscard]] static Result<std::unique_ptr<Scene>> deserialize(std::string_view text);

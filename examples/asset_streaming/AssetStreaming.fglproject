@@ -1,9 +1,55 @@
 {
-  "kind":"FabGLStudioProject","formatVersion":1,
-  "projectGuid":"10000000-0000-4000-8000-000000000010","name":"Asset Streaming Showcase",
-  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"streaming",
-  "scene":{"entities":[
-    {"id":"30000000-0000-4000-8000-000000000010","name":"StreamingManager"},
-    {"id":"30000000-0000-4000-8000-000000000020","name":"ChunkViewport"}]},
-  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+  "kind": "FabGLStudioProject",
+  "formatVersion": 2,
+  "projectGuid": "10000000-0000-4000-8000-000000000010",
+  "name": "Asset Streaming Showcase",
+  "projectRoot": ".",
+  "startupScene": "Scenes/Main.fglscene",
+  "build": {
+    "program": "cmake",
+    "arguments": ["--build", "out/build/dev"]
+  },
+  "assets": [
+    {"guid": "50000000-0000-4000-8000-000000000010", "path": "Assets/World.fgltilemap", "type": "tilemap"},
+    {"guid": "51000000-0000-4000-8000-000000000010", "path": "Assets/Marker.fgli", "type": "image"},
+    {"guid": "52000000-0000-4000-8000-000000000010", "path": "Assets/Tiles.fgltileset", "type": "tileset"},
+    {"guid": "53000000-0000-4000-8000-000000000010", "path": "Assets/Tiles.fgli", "type": "image"}
+  ],
+  "input": {
+    "contexts": [
+      {
+        "name": "streaming-demo",
+        "priority": 0,
+        "enabled": true,
+        "actions": [
+          {
+            "name": "EvictChunk",
+            "bindings": [
+              {"control": "Key.Delete", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "LoadNextChunk",
+            "bindings": [
+              {"control": "Key.Space", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ],
+        "axes": [
+          {
+            "name": "ViewportScroll",
+            "bindings": [
+              {"control": "Key.Left", "scale": -1, "threshold": 0.5},
+              {"control": "Key.Right", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "packages": [],
+  "targetProfiles": {
+    "pc": "pc.default",
+    "esp32": "olimex-esp32-sbc-fabgl-revb"
+  }
 }

@@ -34,12 +34,16 @@ compile_commands.json
 *.exe
 *.pdb
 
+# Wavefront OBJ files below example asset roots are source content, not linker objects.
+!examples/**/Assets/*.obj
+
 # FabGL Studio generated state
 .fabglstudio/
 Library/
 Temp/
 Logs/
 Build/
+/evidence/
 *.fglbackup
 *.autosave
 
@@ -51,6 +55,7 @@ Build/
 __pycache__/
 *.py[cod]
 .venv/
+aqtinstall.log
 
 # Platform noise
 .DS_Store

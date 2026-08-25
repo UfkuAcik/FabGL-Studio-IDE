@@ -3,8 +3,10 @@
 #include "fabgl/animation/animation.h"
 #include "fabgl/physics/physics2d.h"
 
+#include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 
 using namespace fabgl;
 
@@ -91,6 +93,127 @@ FGL_TEST(physics2d_raycast_returns_closest_filtered_shape) {
     auto miss = world.raycast({0.0F, 3.0F}, {1.0F, 0.0F}, 10.0F);
     FGL_CHECK(miss && !miss.value());
     FGL_CHECK(!world.raycast({}, {}, 10.0F));
+}
+
+FGL_TEST(physics2d_applies_gravity_and_mass_based_restitution_impulses) {
+    PhysicsWorld2D gravityWorld;
+    FGL_CHECK(gravityWorld.setGravity({0.0F, 10.0F}));
+    PhysicsBody2D falling;
+    falling.dynamic = true;
+    falling.gravityScale = 0.5F;
+    auto fallingId = gravityWorld.addBody(falling);
+    FGL_CHECK(fallingId);
+    FGL_CHECK(gravityWorld.step(0.5F));
+    FGL_CHECK_NEAR(gravityWorld.findBody(fallingId.value())->velocity.y, 2.5F, 0.0001F);
+    FGL_CHECK_NEAR(gravityWorld.findBody(fallingId.value())->position.y, 1.25F, 0.0001F);
+    FGL_CHECK(!gravityWorld.setGravity({std::numeric_limits<float>::infinity(), 0.0F}));
+
+    PhysicsWorld2D bounceWorld;
+    FGL_CHECK(bounceWorld.setGravity({}));
+    PhysicsBody2D wall;
+    wall.position = {2.0F, 0.0F};
+    wall.shape = AabbShape{{0.5F, 2.0F}};
+    wall.restitution = 1.0F;
+    FGL_CHECK(bounceWorld.addBody(wall));
+    PhysicsBody2D ball;
+    ball.shape = CircleShape{0.5F};
+    ball.velocity = {4.0F, 0.0F};
+    ball.dynamic = true;
+    ball.restitution = 1.0F;
+    ball.friction = 0.0F;
+    auto ballId = bounceWorld.addBody(ball);
+    FGL_CHECK(ballId);
+    FGL_CHECK(bounceWorld.step(0.3F));
+    FGL_CHECK(bounceWorld.contacts().size() == 1);
+    FGL_CHECK_NEAR(bounceWorld.findBody(ballId.value())->velocity.x, -4.0F, 0.0001F);
+}
+
+FGL_TEST(physics2d_supports_kinematic_point_raycast_and_overlap_queries) {
+    PhysicsWorld2D world;
+    FGL_CHECK(world.setGravity({0.0F, 100.0F}));
+    PhysicsBody2D kinematic;
+    kinematic.position = {1.0F, 0.0F};
+    kinematic.velocity = {2.0F, 0.0F};
+    kinematic.shape = PointShape{};
+    kinematic.kinematic = true;
+    kinematic.layer = 2U;
+    auto pointId = world.addBody(kinematic);
+    FGL_CHECK(pointId);
+    FGL_CHECK(world.step(0.5F));
+    FGL_CHECK_NEAR(world.findBody(pointId.value())->position.x, 2.0F, 0.0001F);
+    FGL_CHECK_NEAR(world.findBody(pointId.value())->velocity.y, 0.0F, 0.0001F);
+
+    PhysicsBody2D circle;
+    circle.position = {2.25F, 0.0F};
+    circle.shape = CircleShape{0.5F};
+    circle.layer = 4U;
+    auto circleId = world.addBody(circle);
+    FGL_CHECK(circleId);
+
+    auto hit = world.raycast({}, {1.0F, 0.0F}, 10.0F, 2U);
+    FGL_CHECK(hit && hit.value());
+    FGL_CHECK(hit.value()->body == pointId.value());
+    FGL_CHECK_NEAR(hit.value()->distance, 2.0F, 0.0001F);
+
+    auto overlaps = world.overlap({2.0F, 0.0F}, AabbShape{{0.3F, 0.3F}}, 6U);
+    FGL_CHECK(overlaps);
+    FGL_CHECK(overlaps.value().size() == 2);
+    FGL_CHECK(overlaps.value()[0] == pointId.value());
+    FGL_CHECK(overlaps.value()[1] == circleId.value());
+    FGL_CHECK(!world.overlap({}, CircleShape{-1.0F}));
+
+    PhysicsBody2D invalid;
+    invalid.dynamic = true;
+    invalid.kinematic = true;
+    FGL_CHECK(!world.addBody(invalid));
+}
+
+FGL_TEST(physics2d_tile_collision_character_controller_and_debug_geometry_are_bounded) {
+    PhysicsWorld2D world;
+    TileCollisionMap2D tiles;
+    tiles.width = 4U;
+    tiles.height = 3U;
+    tiles.solidCells = {
+        0U, 0U, 0U, 0U,
+        0U, 0U, 0U, 0U,
+        1U, 1U, 1U, 1U,
+    };
+    auto tileMapId = world.addTileCollisionMap(tiles);
+    FGL_CHECK(tileMapId);
+    FGL_CHECK(world.bodyCount() == 4U);
+    FGL_CHECK(world.findTileCollisionMap(tileMapId.value()) != nullptr);
+
+    auto floorRay = world.raycast({1.5F, 0.0F}, {0.0F, 1.0F}, 10.0F);
+    FGL_CHECK(floorRay && floorRay.value());
+    FGL_CHECK_NEAR(floorRay.value()->distance, 2.0F, 0.0001F);
+
+    CharacterController2DSettings settings;
+    settings.halfExtents = {0.4F, 0.4F};
+    settings.gravity = {0.0F, 20.0F};
+    auto movement = world.moveCharacter({1.5F, 0.5F}, {}, 0.5F, settings);
+    FGL_CHECK(movement);
+    FGL_CHECK(movement.value().grounded);
+    FGL_CHECK_NEAR(movement.value().velocity.y, 0.0F, 0.0001F);
+    FGL_CHECK(movement.value().position.y < 1.601F);
+    FGL_CHECK(!movement.value().touchedBodies.empty());
+
+    const auto debug = world.debugPrimitives();
+    FGL_CHECK(debug.size() == 4U);
+    FGL_CHECK(debug[0].shape == PhysicsDebugShape2D::Aabb);
+    FGL_CHECK_NEAR(debug[0].halfExtents.x, 0.5F, 0.0001F);
+
+    FGL_CHECK(world.removeTileCollisionMap(tileMapId.value()));
+    FGL_CHECK(world.bodyCount() == 0U);
+    FGL_CHECK(!world.removeTileCollisionMap(tileMapId.value()));
+
+    TileCollisionMap2D malformed;
+    malformed.width = 2U;
+    malformed.height = 2U;
+    malformed.solidCells = {1U};
+    FGL_CHECK(!world.addTileCollisionMap(std::move(malformed)));
+    CharacterController2DSettings invalidSettings;
+    invalidSettings.maximumSubsteps = 0U;
+    FGL_CHECK(!world.moveCharacter({}, {}, 1.0F, invalidSettings));
 }
 
 FGL_TEST(animation_curve_supports_step_linear_and_cubic_sampling) {

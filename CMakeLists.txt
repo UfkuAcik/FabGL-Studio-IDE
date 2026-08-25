@@ -1,14 +1,34 @@
 cmake_minimum_required(VERSION 3.24)
 
+set(FGL_VERSION_OVERRIDE "" CACHE STRING
+  "Release version override (must be a numeric semantic version without a leading v)")
+set(FGL_PROJECT_VERSION "0.1.0")
+if(NOT FGL_VERSION_OVERRIDE STREQUAL "")
+  if(NOT FGL_VERSION_OVERRIDE MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR
+      "FGL_VERSION_OVERRIDE must be a numeric semantic version without a leading 'v': "
+      "${FGL_VERSION_OVERRIDE}")
+  endif()
+  set(FGL_PROJECT_VERSION "${FGL_VERSION_OVERRIDE}")
+endif()
+
 project(
   FabGLStudio
-  VERSION 0.1.0
+  VERSION ${FGL_PROJECT_VERSION}
   DESCRIPTION "A desktop game studio and portable runtime for Olimex ESP32-SBC-FabGL"
   HOMEPAGE_URL "https://github.com/fabgl-studio/fabgl-studio"
   LANGUAGES CXX)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10)
+  message(FATAL_ERROR
+    "FabGL Studio host tools require GCC 10 or newer for the C++20 filesystem contract. "
+    "Use the repository-managed MinGW 13 desktop toolchain. The ESP32 firmware uses its "
+    "separately pinned Arduino compiler.")
+endif()
+
 include(CTest)
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 include(cmake/FGLWarnings.cmake)
 include(cmake/FGLSanitizers.cmake)
 
@@ -35,12 +55,12 @@ add_subdirectory(engine)
 add_subdirectory(renderers)
 add_subdirectory(frameworks)
 
-if(FGL_BUILD_PLAYER OR FGL_BUILD_STUDIO)
-  add_subdirectory(apps)
-endif()
-
 if(FGL_BUILD_TOOLS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/CMakeLists.txt")
   add_subdirectory(tools)
+endif()
+
+if(FGL_BUILD_PLAYER OR FGL_BUILD_STUDIO)
+  add_subdirectory(apps)
 endif()
 
 if(BUILD_TESTING AND FGL_BUILD_TESTS)
@@ -83,22 +103,58 @@ install(DIRECTORY docs/
         DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs
         COMPONENT Documentation
         FILES_MATCHING PATTERN "*.md")
+install(FILES docs/images/studio-overview.png
+        DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs/images
+        COMPONENT Documentation)
 install(DIRECTORY examples/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/fabgl-studio/examples
         COMPONENT Examples)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/toolchains/manifest.json")
-  install(FILES toolchains/manifest.json
-          DESTINATION ${CMAKE_INSTALL_DATADIR}/fabgl-studio/toolchains
-          COMPONENT ToolchainMetadata)
+
+configure_package_config_file(
+  cmake/FabGLStudioConfig.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/FabGLStudioConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/FabGLStudio)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/FabGLStudioConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion)
+install(EXPORT FabGLStudioTargets
+        FILE FabGLStudioTargets.cmake
+        NAMESPACE FabGLStudio::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/FabGLStudio
+        COMPONENT SDK)
+install(FILES
+          "${CMAKE_CURRENT_BINARY_DIR}/FabGLStudioConfig.cmake"
+          "${CMAKE_CURRENT_BINARY_DIR}/FabGLStudioConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/FabGLStudio
+        COMPONENT SDK)
+set(FGL_TOOLCHAIN_MANIFESTS toolchains/manifest.json)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/toolchains/desktop-manifest.json")
+  list(APPEND FGL_TOOLCHAIN_MANIFESTS toolchains/desktop-manifest.json)
 endif()
+install(FILES ${FGL_TOOLCHAIN_MANIFESTS}
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/fabgl-studio/toolchains
+        COMPONENT ToolchainMetadata)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/platforms/fabgl/firmware")
   install(DIRECTORY platforms/fabgl/firmware/
           DESTINATION ${CMAKE_INSTALL_DATADIR}/fabgl-studio/platforms/fabgl/firmware
           COMPONENT FirmwareSource)
 endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/platforms/common/LifecycleScheduler.h")
+  install(FILES platforms/common/LifecycleScheduler.h
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/fabgl-studio/platforms/common
+          COMPONENT FirmwareSource)
+endif()
 set(FGL_TOOLCHAIN_SCRIPTS
+  scripts/bootstrap_desktop.ps1
+  scripts/bootstrap_nsis.ps1
+  scripts/build_desktop.ps1
+  scripts/build_project.ps1
+  scripts/build_project_scripts.ps1
   scripts/bootstrap_toolchain.ps1
   scripts/build_esp32.ps1
+  scripts/capture_hardware_diagnostics.ps1
+  scripts/detect_serial_ports.ps1
   scripts/upload_esp32.ps1
   scripts/serial_monitor.ps1)
 foreach(toolchain_script IN LISTS FGL_TOOLCHAIN_SCRIPTS)

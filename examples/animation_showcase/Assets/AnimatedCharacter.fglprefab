@@ -1,0 +1,75 @@
+fglprefab 2
+asset_guid 54000000-0000-4000-8000-000000000009
+name "Animated Character"
+nested_base nil
+root_component_count 1
+component_begin
+type_id cb1e1a1b-bd20-516d-9a6c-53ec2b9445d3
+type_name "fabgl.ParticleEmitter"
+property_count 15
+property "acceleration" vec2 0 18
+property "burstOnStart" uint 12
+property "cullOutsideBounds" bool 1
+property "cullingBounds" rect 0 0 320 180
+property "enabled" bool 1
+property "endColor" color 255 80 48 0
+property "endRotation" float 1.5
+property "endSize" float 0.25
+property "lifetime" float 1.5
+property "maxParticles" uint 128
+property "rate" float 18
+property "startColor" color 255 220 96 255
+property "startRotation" float 0
+property "startSize" float 2
+property "velocity" vec2 0 -14
+component_end
+entity_count 2
+entity_begin
+entity_guid 31000000-0000-4000-8000-000000000009
+name "AnimatedSprite"
+active 1
+parent nil
+component_count 1
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+property_count 3
+property "localPosition" vec3 160 90 0
+property "localRotation" euler 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+entity_end
+entity_begin
+entity_guid 31000000-0000-4000-8000-000000000019
+name "Animator"
+active 1
+parent 31000000-0000-4000-8000-000000000009
+component_count 3
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" euler 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id c8a100cb-8d3e-5ce2-bb67-c68e09ad5b0d
+type_name "fabgl.Animator"
+property_count 5
+property "controller" asset 52000000-0000-4000-8000-000000000009
+property "enabled" bool 1
+property "initialState" string "idle"
+property "playing" bool 1
+property "speed" float 1
+component_end
+component_begin
+type_id d1998c76-1b33-5fb2-9e00-b621d485bab2
+type_name "fabgl.SpriteRenderer"
+property_count 3
+property "enabled" bool 1
+property "sprite" asset 50000000-0000-4000-8000-000000000009
+property "tint" color 255 210 104 255
+component_end
+entity_end
+prefab_end

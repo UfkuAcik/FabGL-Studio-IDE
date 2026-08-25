@@ -1,10 +1,52 @@
 {
-  "kind":"FabGLStudioProject","formatVersion":1,
-  "projectGuid":"10000000-0000-4000-8000-000000000002","name":"2D Platformer Demo",
-  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"platformer",
-  "scene":{"entities":[
-    {"id":"30000000-0000-4000-8000-000000000002","name":"Player"},
-    {"id":"30000000-0000-4000-8000-000000000012","name":"Platforms"},
-    {"id":"30000000-0000-4000-8000-000000000022","name":"Camera"}]},
-  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+  "kind": "FabGLStudioProject",
+  "formatVersion": 2,
+  "projectGuid": "10000000-0000-4000-8000-000000000002",
+  "name": "2D Platformer Demo",
+  "projectRoot": ".",
+  "startupScene": "Scenes/Main.fglscene",
+  "build": {
+    "program": "cmake",
+    "arguments": ["--build", "out/build/dev"]
+  },
+  "assets": [
+    {"guid": "50000000-0000-4000-8000-000000000002", "path": "Assets/Player.fgli", "type": "image"}
+  ],
+  "input": {
+    "contexts": [
+      {
+        "name": "gameplay",
+        "priority": 0,
+        "enabled": true,
+        "actions": [
+          {
+            "name": "Jump",
+            "bindings": [
+              {"control": "Key.Space", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "Pause",
+            "bindings": [
+              {"control": "Key.Escape", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ],
+        "axes": [
+          {
+            "name": "MoveX",
+            "bindings": [
+              {"control": "Key.A", "scale": -1, "threshold": 0.5},
+              {"control": "Key.D", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "packages": [],
+  "targetProfiles": {
+    "pc": "pc.default",
+    "esp32": "olimex-esp32-sbc-fabgl-revb"
+  }
 }

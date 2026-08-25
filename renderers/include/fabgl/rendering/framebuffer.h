@@ -32,6 +32,7 @@ class Framebuffer final {
     void fillRect(int x, int y, int width, int height, Color color) noexcept;
     void drawLine(int x0, int y0, int x1, int y1, Color color) noexcept;
     void fillTriangle(Vec2 a, Vec2 b, Vec2 c, Color color) noexcept;
+    void fillTriangleBlended(Vec2 a, Vec2 b, Vec2 c, Color color) noexcept;
 
     [[nodiscard]] bool savePpm(const std::string& path, std::string& error) const;
     [[nodiscard]] std::uint64_t checksum() const noexcept;

@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000005
 scene_name "Racer Coast"
 entity_begin
@@ -6,26 +6,60 @@ guid 30000000-0000-4000-8000-000000000005
 name "PlayerVehicle"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 53e2b6e9-8ec0-5cc0-b6c2-c3554e4523df
+type_name "fabgl.VehicleController"
+enabled 1
+property_count 7
+property "enabled" bool 1
+property "acceleration" float 10
+property "track" asset 50000000-0000-4000-8000-000000000005
+property "steerAxis" string "Steer"
+property "throttleAxis" string "Throttle"
+property "brakeAction" string "Brake"
+property "driftAction" string "Handbrake"
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000015
 name "DemoTrack"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 1
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000025
 name "LapManager"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 1
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
 entity_end
 scene_end

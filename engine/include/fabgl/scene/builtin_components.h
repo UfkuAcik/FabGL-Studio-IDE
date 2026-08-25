@@ -37,5 +37,7 @@ class DataComponent final : public Component {
 [[nodiscard]] Result<void> registerBuiltinComponentTypes(ReflectionRegistry& registry);
 [[nodiscard]] Result<std::unique_ptr<DataComponent>>
 createBuiltinDataComponent(const ReflectionRegistry& registry, std::string_view shortName);
+[[nodiscard]] Result<std::unique_ptr<DataComponent>>
+createBuiltinDataComponent(const ReflectionRegistry& registry, ComponentTypeGuid typeId);
 
 } // namespace fabgl

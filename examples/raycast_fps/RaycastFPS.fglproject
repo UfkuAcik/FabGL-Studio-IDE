@@ -1,10 +1,65 @@
 {
-  "kind":"FabGLStudioProject","formatVersion":1,
-  "projectGuid":"10000000-0000-4000-8000-000000000004","name":"Raycast FPS Demo",
-  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"raycast",
-  "scene":{"entities":[
-    {"id":"30000000-0000-4000-8000-000000000004","name":"FirstPersonPlayer"},
-    {"id":"30000000-0000-4000-8000-000000000014","name":"RaycastMap"},
-    {"id":"30000000-0000-4000-8000-000000000024","name":"Enemy"}]},
-  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+  "kind": "FabGLStudioProject",
+  "formatVersion": 2,
+  "projectGuid": "10000000-0000-4000-8000-000000000004",
+  "name": "Raycast FPS Demo",
+  "projectRoot": ".",
+  "startupScene": "Scenes/Main.fglscene",
+  "build": {
+    "program": "cmake",
+    "arguments": ["--build", "out/build/dev"]
+  },
+  "assets": [
+    {"guid": "50000000-0000-4000-8000-000000000004", "path": "Maps/Facility.fglray", "type": "raycast.map"}
+  ],
+  "input": {
+    "contexts": [
+      {
+        "name": "gameplay",
+        "priority": 0,
+        "enabled": true,
+        "actions": [
+          {
+            "name": "Fire",
+            "bindings": [
+              {"control": "Mouse.Left", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "Use",
+            "bindings": [
+              {"control": "Key.E", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ],
+        "axes": [
+          {
+            "name": "LookX",
+            "bindings": [
+              {"control": "Mouse.X", "scale": 0.75, "threshold": 0}
+            ]
+          },
+          {
+            "name": "MoveX",
+            "bindings": [
+              {"control": "Key.A", "scale": -1, "threshold": 0.5},
+              {"control": "Key.D", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "MoveY",
+            "bindings": [
+              {"control": "Key.S", "scale": -1, "threshold": 0.5},
+              {"control": "Key.W", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "packages": [],
+  "targetProfiles": {
+    "pc": "pc.default",
+    "esp32": "olimex-esp32-sbc-fabgl-revb"
+  }
 }

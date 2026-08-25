@@ -1,4 +1,4 @@
-fglscene 1
+fglscene 2
 scene_guid 20000000-0000-4000-8000-000000000007
 scene_name "UI Showcase"
 entity_begin
@@ -6,26 +6,136 @@ guid 30000000-0000-4000-8000-000000000007
 name "Canvas"
 active 1
 parent nil
-position 0 0 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 0 0 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 21927602-5ad2-5ffd-a4f6-30b87a140225
+type_name "fabgl.UITransform"
+enabled 1
+property_count 18
+property "enabled" bool 1
+property "widgetType" enum 0
+property "anchorMinimum" vec2 0 0
+property "anchorMaximum" vec2 1 1
+property "offsetMinimum" vec2 0 0
+property "offsetMaximum" vec2 320 180
+property "visible" bool 1
+property "text" string ""
+property "minimum" float 0
+property "maximum" float 1
+property "value" float 0
+property "step" float 0.10000000000000001
+property "checked" bool 0
+property "items" string ""
+property "selectedIndex" sint -1
+property "layoutDirection" enum 1
+property "layoutSpacing" float -1
+property "layoutPadding" float -1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000017
 name "StartButton"
 active 1
 parent 30000000-0000-4000-8000-000000000007
-position 120 80 0
-rotation 0 0 0
-scale 1 1 1
+component_count 4
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 120 80 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 21927602-5ad2-5ffd-a4f6-30b87a140225
+type_name "fabgl.UITransform"
+enabled 1
+property_count 18
+property "enabled" bool 1
+property "widgetType" enum 3
+property "anchorMinimum" vec2 0 0
+property "anchorMaximum" vec2 0 0
+property "offsetMinimum" vec2 110 70
+property "offsetMaximum" vec2 210 106
+property "visible" bool 1
+property "text" string "Start Game"
+property "minimum" float 0
+property "maximum" float 1
+property "value" float 0
+property "step" float 0.10000000000000001
+property "checked" bool 0
+property "items" string ""
+property "selectedIndex" sint -1
+property "layoutDirection" enum 1
+property "layoutSpacing" float -1
+property "layoutPadding" float -1
+component_end
+component_begin
+type_id 8457175c-e7ec-59f6-b344-b85378e87700
+type_name "fabgl.UIText"
+enabled 1
+property_count 3
+property "enabled" bool 1
+property "text" string "Start Game"
+property "color" color 244 248 255 255
+component_end
+component_begin
+type_id 09a7b316-d3b7-5cf8-86a2-94d602dd0e74
+type_name "fabgl.UIButton"
+enabled 1
+property_count 2
+property "enabled" bool 1
+property "interactable" bool 1
+component_end
 entity_end
 entity_begin
 guid 30000000-0000-4000-8000-000000000027
 name "HealthBar"
 active 1
 parent 30000000-0000-4000-8000-000000000007
-position 8 8 0
-rotation 0 0 0
-scale 1 1 1
+component_count 2
+component_begin
+type_id 3f0c300d-0dcd-5ba3-9e9e-b0ee0fd1661a
+type_name "fabgl.Transform"
+enabled 1
+property_count 3
+property "localPosition" vec3 8 8 0
+property "localRotation" vec3 0 0 0
+property "localScale" vec3 1 1 1
+component_end
+component_begin
+type_id 21927602-5ad2-5ffd-a4f6-30b87a140225
+type_name "fabgl.UITransform"
+enabled 1
+property_count 18
+property "enabled" bool 1
+property "widgetType" enum 6
+property "anchorMinimum" vec2 0 0
+property "anchorMaximum" vec2 0 0
+property "offsetMinimum" vec2 8 8
+property "offsetMaximum" vec2 136 24
+property "visible" bool 1
+property "text" string "Health"
+property "minimum" float 0
+property "maximum" float 100
+property "value" float 72
+property "step" float 1
+property "checked" bool 0
+property "items" string ""
+property "selectedIndex" sint -1
+property "layoutDirection" enum 0
+property "layoutSpacing" float -1
+property "layoutPadding" float -1
+component_end
 entity_end
 scene_end

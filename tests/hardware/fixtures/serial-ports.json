@@ -1,0 +1,14 @@
+[
+  {
+    "name": "USB-SERIAL CH340 (COM7)",
+    "pnpDeviceId": "USB\\VID_1A86&PID_7523\\FABGLBOARD"
+  },
+  {
+    "name": "Standard Serial over Bluetooth link (COM4)",
+    "pnpDeviceId": "BTHENUM\\{00001101-0000-1000-8000-00805F9B34FB}"
+  },
+  {
+    "name": "Generic USB Serial Device (COM9)",
+    "pnpDeviceId": "USB\\VID_9999&PID_0001\\UNKNOWN"
+  }
+]

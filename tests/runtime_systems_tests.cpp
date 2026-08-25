@@ -5,6 +5,7 @@
 #include "fabgl/particles/particle_system.h"
 #include "fabgl/profiling/profiler.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -32,6 +33,24 @@ class CapturingAudioBackend final : public IAudioOutputBackend {
 
 AudioClipView monoClip(const float* samples, std::size_t frames, std::uint32_t sampleRate) {
     return {samples, frames, 1, sampleRate};
+}
+
+struct StreamingFixture final {
+    const float* samples = nullptr;
+    std::size_t frames = 0U;
+    std::size_t reads = 0U;
+};
+
+std::size_t readStreamingFixture(const void* context, const std::size_t firstFrame, float* output,
+                                 const std::size_t frameCount) noexcept {
+    auto* fixture = static_cast<StreamingFixture*>(const_cast<void*>(context));
+    if (fixture == nullptr || output == nullptr || firstFrame >= fixture->frames) {
+        return 0U;
+    }
+    ++fixture->reads;
+    const auto count = std::min(frameCount, fixture->frames - firstFrame);
+    std::copy_n(fixture->samples + firstFrame, count, output);
+    return count;
 }
 
 } // namespace
@@ -130,6 +149,32 @@ FGL_TEST(audio_mixer_rejects_invalid_clips_buses_and_voice_parameters) {
     auto noBackend = mixer.render(1);
     FGL_CHECK(!noBackend);
     FGL_CHECK(noBackend.error().code() == ErrorCode::InvalidState);
+}
+
+FGL_TEST(audio_mixer_reads_streaming_clips_through_a_bounded_per_voice_cache) {
+    std::array<float, 260U> samples{};
+    for (std::size_t index = 0U; index < samples.size(); ++index) {
+        samples[index] = static_cast<float>(index % 17U) / 16.0F;
+    }
+    StreamingFixture fixture{samples.data(), samples.size(), 0U};
+    AudioClipView clip;
+    clip.frameCount = samples.size();
+    clip.channelCount = 1U;
+    clip.sampleRate = 4U;
+    clip.readerContext = &fixture;
+    clip.frameReader = &readStreamingFixture;
+
+    AudioMixer mixer({4U, 1U, 1U, 256U});
+    FGL_CHECK(mixer.play(clip));
+    std::array<float, 400U> output{};
+    FGL_CHECK(mixer.mixTo(output.data(), 200U));
+    FGL_CHECK_NEAR(output[0U], samples[0U], 0.0001F);
+    FGL_CHECK_NEAR(output[2U * 129U], samples[129U], 0.0001F);
+    const auto stats = mixer.stats();
+    FGL_CHECK(fixture.reads == 2U);
+    FGL_CHECK(stats.streamCacheRefills == 2U);
+    FGL_CHECK(stats.streamedFrames == 256U);
+    FGL_CHECK(stats.streamUnderruns == 0U);
 }
 
 FGL_TEST(particle_system_is_bounded_and_reuses_slots_without_reviving_stale_handles) {

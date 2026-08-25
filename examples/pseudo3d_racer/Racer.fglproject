@@ -1,10 +1,96 @@
 {
-  "kind":"FabGLStudioProject","formatVersion":1,
-  "projectGuid":"10000000-0000-4000-8000-000000000005","name":"Pseudo-3D Racer Demo",
-  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"racer",
-  "scene":{"entities":[
-    {"id":"30000000-0000-4000-8000-000000000005","name":"PlayerVehicle"},
-    {"id":"30000000-0000-4000-8000-000000000015","name":"DemoTrack"},
-    {"id":"30000000-0000-4000-8000-000000000025","name":"LapManager"}]},
-  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+    "assets": [
+        {
+            "guid": "50000000-0000-4000-8000-000000000005",
+            "path": "Tracks/Main.fgltrack",
+            "type": "racer.track"
+        },
+        {
+            "guid": "51000000-0000-4000-8000-000000000001",
+            "path": "Assets/RacerSprite.fgli",
+            "type": "image"
+        }
+    ],
+    "build": {
+        "arguments": [
+            "--build",
+            "out/build/dev"
+        ],
+        "program": "cmake"
+    },
+    "formatVersion": 2,
+    "input": {
+        "contexts": [
+            {
+                "actions": [
+                    {
+                        "bindings": [
+                            {
+                                "control": "Key.Space",
+                                "scale": 1,
+                                "threshold": 0.5
+                            }
+                        ],
+                        "name": "Brake"
+                    },
+                    {
+                        "bindings": [
+                            {
+                                "control": "Key.R",
+                                "scale": 1,
+                                "threshold": 0.5
+                            }
+                        ],
+                        "name": "ResetVehicle"
+                    }
+                ],
+                "axes": [
+                    {
+                        "bindings": [
+                            {
+                                "control": "Key.A",
+                                "scale": -1,
+                                "threshold": 0.5
+                            },
+                            {
+                                "control": "Key.D",
+                                "scale": 1,
+                                "threshold": 0.5
+                            }
+                        ],
+                        "name": "Steer"
+                    },
+                    {
+                        "bindings": [
+                            {
+                                "control": "Key.S",
+                                "scale": -1,
+                                "threshold": 0.5
+                            },
+                            {
+                                "control": "Key.W",
+                                "scale": 1,
+                                "threshold": 0.5
+                            }
+                        ],
+                        "name": "Throttle"
+                    }
+                ],
+                "enabled": true,
+                "name": "driving",
+                "priority": 0
+            }
+        ]
+    },
+    "kind": "FabGLStudioProject",
+    "name": "Pseudo-3D Racer Demo",
+    "packages": [
+    ],
+    "projectGuid": "10000000-0000-4000-8000-000000000005",
+    "projectRoot": ".",
+    "startupScene": "Scenes/Main.fglscene",
+    "targetProfiles": {
+        "esp32": "olimex-esp32-sbc-fabgl-revb",
+        "pc": "pc.default"
+    }
 }

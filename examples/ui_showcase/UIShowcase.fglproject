@@ -1,10 +1,57 @@
 {
-  "kind":"FabGLStudioProject","formatVersion":1,
-  "projectGuid":"10000000-0000-4000-8000-000000000007","name":"UI Showcase",
-  "projectRoot":".","startupScene":"Scenes/Main.fglscene","previewDemo":"ui",
-  "scene":{"entities":[
-    {"id":"30000000-0000-4000-8000-000000000007","name":"Canvas"},
-    {"id":"30000000-0000-4000-8000-000000000017","name":"StartButton"},
-    {"id":"30000000-0000-4000-8000-000000000027","name":"HealthBar"}]},
-  "build":{"program":"cmake","arguments":["--build","out/build/dev"]}
+  "kind": "FabGLStudioProject",
+  "formatVersion": 2,
+  "projectGuid": "10000000-0000-4000-8000-000000000007",
+  "name": "UI Showcase",
+  "projectRoot": ".",
+  "startupScene": "Scenes/Main.fglscene",
+  "build": {
+    "program": "cmake",
+    "arguments": ["--build", "out/build/dev"]
+  },
+  "assets": [],
+  "input": {
+    "contexts": [
+      {
+        "name": "ui",
+        "priority": 100,
+        "enabled": true,
+        "actions": [
+          {
+            "name": "Accept",
+            "bindings": [
+              {"control": "Key.Enter", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "Cancel",
+            "bindings": [
+              {"control": "Key.Escape", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ],
+        "axes": [
+          {
+            "name": "NavigateX",
+            "bindings": [
+              {"control": "Key.Left", "scale": -1, "threshold": 0.5},
+              {"control": "Key.Right", "scale": 1, "threshold": 0.5}
+            ]
+          },
+          {
+            "name": "NavigateY",
+            "bindings": [
+              {"control": "Key.Down", "scale": -1, "threshold": 0.5},
+              {"control": "Key.Up", "scale": 1, "threshold": 0.5}
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "packages": [],
+  "targetProfiles": {
+    "pc": "pc.default",
+    "esp32": "olimex-esp32-sbc-fabgl-revb"
+  }
 }

@@ -83,9 +83,12 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $buildResult = Get-Content -LiteralPath $BuildResultPath -Raw | ConvertFrom-Json
 foreach ($property in @(
         'schemaVersion', 'success', 'toolchainMode', 'profile', 'fqbn',
+        'buildProfile', 'profileOptimizationFlags', 'partitionScheme',
+        'partitionAppBytes', 'partitionCsv', 'partitionSha256',
         'arduinoCli', 'arduinoConfig', 'arduinoCliVersion', 'arduinoCore',
         'fabglVersion', 'fabglCommitVerified', 'compilerWarnings',
-        'compilerCppExtraFlags', 'binary', 'binaryBytes', 'binarySha256',
+        'compilerCompatibilityFlags', 'compilerCppExtraFlags', 'compilerCExtraFlags',
+        'binary', 'binaryBytes', 'binarySha256',
         'psramProfile', 'uploadPerformed')) {
     Assert-Property -Object $buildResult -Name $property
 }
@@ -95,14 +98,42 @@ $expectedCore = [string]$manifest.profile.arduinoCore.version
 $expectedFabgl = [string]$manifest.profile.fabgl.version
 $expectedCli = @($manifest.artifacts | Where-Object id -eq 'arduino-cli-windows-x86_64')[0]
 $referenceFqbn = [string]$manifest.profile.fqbn
-$psramFqbn = $referenceFqbn.Replace('PSRAM=disabled', 'PSRAM=enabled')
+$expectedOptimizationFlags = $null
+$expectedDefinition = $null
+$expectedDebugLevel = 'none'
+switch ([string]$buildResult.buildProfile) {
+    'Debug' {
+        $expectedOptimizationFlags = '-Og -g3 -fno-omit-frame-pointer'
+        $expectedDefinition = '-DFABGL_STUDIO_PROFILE_DEBUG=1'
+        $expectedDebugLevel = 'debug'
+    }
+    'Release' {
+        $expectedOptimizationFlags = '-O2 -g1'
+        $expectedDefinition = '-DNDEBUG -DFABGL_STUDIO_PROFILE_RELEASE=1'
+    }
+    'SizeOptimized' {
+        $expectedOptimizationFlags = '-Os -g0 -ffunction-sections -fdata-sections'
+        $expectedDefinition = '-DNDEBUG -DFABGL_STUDIO_PROFILE_SIZE_OPTIMIZED=1'
+    }
+    'PerformanceOptimized' {
+        $expectedOptimizationFlags = '-O3 -g0 -funroll-loops'
+        $expectedDefinition = '-DNDEBUG -DFABGL_STUDIO_PROFILE_PERFORMANCE_OPTIMIZED=1'
+    }
+    default {
+        throw "Build result has an unsupported ESP32 build profile: $($buildResult.buildProfile)"
+    }
+}
+$expectedFqbn = $referenceFqbn.Replace('DebugLevel=none', "DebugLevel=$expectedDebugLevel")
+if ($buildResult.psramProfile -eq 'enabled-experimental') {
+    $expectedFqbn = $expectedFqbn.Replace('PSRAM=disabled', 'PSRAM=enabled')
+}
 
 if ($ConfirmBoardProfile -ne $expectedProfile -or $buildResult.profile -ne $expectedProfile) {
     throw "Board confirmation and build profile must both equal '$expectedProfile'."
 }
-if ($buildResult.schemaVersion -ne 1 -or
+if ($buildResult.schemaVersion -ne 2 -or
     $buildResult.success -isnot [bool] -or -not $buildResult.success) {
-    throw 'Build result does not represent a successful schemaVersion 1 build.'
+    throw 'Build result does not represent a successful schemaVersion 2 build.'
 }
 if ($buildResult.uploadPerformed -isnot [bool] -or $buildResult.uploadPerformed) {
     throw 'Build result is invalid or already records an upload operation.'
@@ -117,17 +148,29 @@ if ($buildResult.arduinoCliVersion -notmatch "Version:\s*$([regex]::Escape($expe
     throw "Build result does not verify locked Arduino CLI $($expectedCli.version)."
 }
 if ($buildResult.compilerWarnings -ne [string]$manifest.profile.compiler.warnings -or
-    $buildResult.compilerCppExtraFlags -ne [string]$manifest.profile.compiler.cppExtraFlags) {
+    $buildResult.compilerCompatibilityFlags -ne [string]$manifest.profile.compiler.cppExtraFlags -or
+    $buildResult.profileOptimizationFlags -ne $expectedOptimizationFlags -or
+    $buildResult.compilerCppExtraFlags -ne
+        "$($manifest.profile.compiler.cppExtraFlags) $expectedOptimizationFlags $expectedDefinition" -or
+    $buildResult.compilerCExtraFlags -ne "$expectedOptimizationFlags $expectedDefinition") {
     throw 'Build result compiler contract does not match the manifest.'
 }
-if ($buildResult.fqbn -ne $referenceFqbn -and $buildResult.fqbn -ne $psramFqbn) {
-    throw 'Build result FQBN is not an approved reference or experimental PSRAM profile.'
+if ($buildResult.fqbn -ne $expectedFqbn) {
+    throw 'Build result FQBN does not match its build and PSRAM profiles.'
 }
-if (($buildResult.fqbn -eq $referenceFqbn -and
-        $buildResult.psramProfile -ne 'disabled-reference') -or
-    ($buildResult.fqbn -eq $psramFqbn -and
-        $buildResult.psramProfile -ne 'enabled-experimental')) {
+if ($buildResult.psramProfile -notin @('disabled-reference', 'enabled-experimental')) {
     throw 'Build result PSRAM label does not agree with its FQBN.'
+}
+if ($buildResult.partitionScheme -ne 'huge_app' -or
+    [uint64]$buildResult.partitionAppBytes -ne 0x300000) {
+    throw 'Build result does not use the verified huge_app 0x300000-byte app partition.'
+}
+$partitionCsv = Assert-PathWithinRepository -Path ([string]$buildResult.partitionCsv) `
+    -RepositoryRoot $repositoryRoot -Description 'Partition table'
+if (-not (Test-Path -LiteralPath $partitionCsv -PathType Leaf) -or
+    (Get-FileHash -LiteralPath $partitionCsv -Algorithm SHA256).Hash.ToLowerInvariant() -ne
+        [string]$buildResult.partitionSha256) {
+    throw 'Build result partition table is missing or no longer matches its SHA-256.'
 }
 
 $binary = Assert-PathWithinRepository -Path ([string]$buildResult.binary) `
@@ -141,6 +184,7 @@ $actualHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower
 $expectedHash = [string]$buildResult.binarySha256
 if ($expectedHash -notmatch '^[0-9a-f]{64}$' -or
     [uint64]$binaryInfo.Length -ne [uint64]$buildResult.binaryBytes -or
+    [uint64]$binaryInfo.Length -gt [uint64]$buildResult.partitionAppBytes -or
     $actualHash -ne $expectedHash) {
     throw 'Firmware binary size or SHA-256 no longer matches build-result.json.'
 }

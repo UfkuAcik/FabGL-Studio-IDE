@@ -18,6 +18,19 @@ Result<void> writeVec3Property(void* instance, const PropertyValue& value,
     return Result<void>::success();
 }
 
+Result<void> writeEulerProperty(void* instance, const PropertyValue& value,
+                                void (TransformComponent::*setter)(Vec3),
+                                const char* propertyName) {
+    const auto* euler = std::get_if<EulerAngles>(&value);
+    if (euler == nullptr) {
+        return Result<void>::failure(
+            Error(ErrorCode::TypeMismatch, "property value must be Euler angles")
+                .addContext("property", propertyName));
+    }
+    (static_cast<TransformComponent*>(instance)->*setter)(Vec3{euler->x, euler->y, euler->z});
+    return Result<void>::success();
+}
+
 TypeMetadata createTransformMetadata() {
     TypeMetadata metadata;
     metadata.typeId = TransformComponent::staticTypeId();
@@ -43,17 +56,17 @@ TypeMetadata createTransformMetadata() {
     PropertyMetadata rotation;
     rotation.name = "localRotation";
     rotation.displayName = "Rotation (Radians)";
-    rotation.type = PropertyType::Vec3;
+    rotation.type = PropertyType::EulerAngles;
     rotation.flags = PropertyFlags::Serialize | PropertyFlags::RuntimeEditable;
-    rotation.defaultValue = Vec3{};
+    rotation.defaultValue = EulerAngles{};
     rotation.category = "Transform";
     rotation.reader = [](const void* instance) {
-        return Result<PropertyValue>::success(
-            PropertyValue(static_cast<const TransformComponent*>(instance)->localRotation()));
+        const auto value = static_cast<const TransformComponent*>(instance)->localRotation();
+        return Result<PropertyValue>::success(PropertyValue(EulerAngles{value.x, value.y, value.z}));
     };
     rotation.writer = [](void* instance, const PropertyValue& value) {
-        return writeVec3Property(instance, value, &TransformComponent::setLocalRotation,
-                                 "localRotation");
+        return writeEulerProperty(instance, value, &TransformComponent::setLocalRotation,
+                                  "localRotation");
     };
 
     PropertyMetadata scale;

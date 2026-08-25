@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $projectPath = (Resolve-Path $Project).Path
 $manifest = Get-Content -Raw -LiteralPath $projectPath -Encoding UTF8 | ConvertFrom-Json
-if ($manifest.kind -ne 'FabGLStudioProject' -or $manifest.formatVersion -ne 1) {
+if ($manifest.kind -ne 'FabGLStudioProject' -or $manifest.formatVersion -ne 2) {
     throw 'The selected file is not a supported FabGL Studio project.'
 }
 

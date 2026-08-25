@@ -1,5 +1,8 @@
 #include "demo.h"
 
+#include <fabgl/scene/entity.h>
+#include <fabgl/scene/scene.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -36,6 +39,24 @@ Demo::Demo(rendering::Framebuffer& framebuffer, DemoKind kind)
         }
     }
     raycastCamera_.position = {2.5F, 2.5F};
+    platformerState_.position = playerPosition_;
+    topDownState_.position = playerPosition_;
+    thirdPersonState_.position = {0.0F, 0.0F, 1.0F};
+}
+
+void Demo::bindScene(Scene& scene) noexcept {
+    scene_ = &scene;
+    playerEntity_.reset();
+    for (auto* entity : scene.entities()) {
+        if (entity->name() == "Player") {
+            playerEntity_ = entity->id();
+            const auto position = entity->transform().localPosition();
+            playerPosition_ = {position.x, position.y};
+            platformerState_.position = playerPosition_;
+            topDownState_.position = playerPosition_;
+            break;
+        }
+    }
 }
 
 void Demo::update(float deltaSeconds, const InputState& input) noexcept {
@@ -46,31 +67,46 @@ void Demo::update(float deltaSeconds, const InputState& input) noexcept {
         break;
     case DemoKind::Platformer2D: {
         const auto horizontal = (input.right ? 1.0F : 0.0F) - (input.left ? 1.0F : 0.0F);
-        playerVelocity_.x = horizontal * 70.0F;
-        playerVelocity_.y += 210.0F * delta;
-        if (input.action && playerPosition_.y >= 136.0F) {
-            playerVelocity_.y = -115.0F;
-        }
-        playerPosition_ = playerPosition_ + playerVelocity_ * delta;
-        if (playerPosition_.y > 136.0F) {
-            playerPosition_.y = 136.0F;
-            playerVelocity_.y = 0.0F;
-        }
-        playerPosition_.x =
-            std::clamp(playerPosition_.x, 0.0F,
+        const std::vector<Rect> solidPlatforms = {
+            {0.0F, 144.0F, 320.0F, 36.0F},
+            {72.0F, 112.0F, 72.0F, 8.0F},
+            {184.0F, 80.0F, 88.0F, 8.0F},
+        };
+        platformerController_.step(platformerState_, {horizontal, input.action, input.action},
+                                   delta, solidPlatforms);
+        platformerState_.position.x =
+            std::clamp(platformerState_.position.x, 0.0F,
                        static_cast<float>(framebuffer_.width() - playerSprite_.width));
+        playerPosition_ = platformerState_.position;
+        playerVelocity_ = platformerState_.velocity;
         break;
     }
     case DemoKind::TopDown: {
         const auto horizontal = (input.right ? 1.0F : 0.0F) - (input.left ? 1.0F : 0.0F);
         const auto vertical = (input.backward ? 1.0F : 0.0F) - (input.forward ? 1.0F : 0.0F);
-        playerPosition_.x = std::clamp(playerPosition_.x + horizontal * 76.0F * delta, 18.0F,
-                                       static_cast<float>(framebuffer_.width() - 26));
-        playerPosition_.y = std::clamp(playerPosition_.y + vertical * 76.0F * delta, 18.0F,
-                                       static_cast<float>(framebuffer_.height() - 26));
+        frameworks::updateTopDown(topDownState_, {horizontal, vertical}, topDownState_.aim, 76.0F,
+                                  delta);
+        topDownState_.position.x =
+            std::clamp(topDownState_.position.x, 18.0F,
+                       static_cast<float>(framebuffer_.width() - 26));
+        topDownState_.position.y =
+            std::clamp(topDownState_.position.y, 18.0F,
+                       static_cast<float>(framebuffer_.height() - 26));
+        topDownWeapon_.update(delta);
+        if (topDownWeapon_.tryFire(input.action, input.action)) {
+            static_cast<void>(projectiles_.spawn(topDownState_.position, topDownState_.aim, 120.0F,
+                                                 1.5F, 10));
+        }
+        projectiles_.update(delta);
+        playerPosition_ = topDownState_.position;
+        playerVelocity_ = topDownState_.velocity;
         break;
     }
     case DemoKind::RaycastFps: {
+        if (input.action) {
+            fpsDoor_.activate();
+        }
+        fpsDoor_.update(delta);
         const auto turn = (input.right ? 1.0F : 0.0F) - (input.left ? 1.0F : 0.0F);
         raycastAngle_ += turn * delta * 1.8F;
         raycastCamera_.direction = {std::cos(raycastAngle_), std::sin(raycastAngle_)};
@@ -88,18 +124,23 @@ void Demo::update(float deltaSeconds, const InputState& input) noexcept {
     case DemoKind::Racer: {
         const auto throttle = input.forward ? 1.0F : 0.0F;
         const auto brake = input.backward ? 1.0F : 0.0F;
-        racerCamera_.speed +=
-            (throttle * 34.0F - brake * 50.0F - racerCamera_.speed * 0.18F) * delta;
-        racerCamera_.speed = std::clamp(racerCamera_.speed, 0.0F, 95.0F);
         const auto steering = (input.right ? 1.0F : 0.0F) - (input.left ? 1.0F : 0.0F);
-        racerCamera_.lateral =
-            std::clamp(racerCamera_.lateral + steering * delta * 1.2F, -1.2F, 1.2F);
-        racerCamera_.distance += racerCamera_.speed * delta;
+        frameworks::updateVehicle(vehicleState_, vehicleConfig_, throttle, brake, steering,
+                                  input.action, delta);
+        vehicleState_.lateral = std::clamp(vehicleState_.lateral, -1.2F, 1.2F);
+        racerCamera_.speed = vehicleState_.speed;
+        racerCamera_.lateral = vehicleState_.lateral;
+        racerCamera_.distance = vehicleState_.distance;
         break;
     }
-    case DemoKind::LowPolyExperimental:
+    case DemoKind::LowPolyExperimental: {
+        const auto horizontal = (input.right ? 1.0F : 0.0F) - (input.left ? 1.0F : 0.0F);
+        const auto vertical = (input.forward ? 1.0F : 0.0F) - (input.backward ? 1.0F : 0.0F);
+        frameworks::updateThirdPerson(thirdPersonState_, {horizontal, vertical}, 0.0F, 1.5F, 5.0F,
+                                      delta);
         cubeAngle_ += delta * (input.action ? 2.4F : 0.8F);
         break;
+    }
     case DemoKind::UiShowcase:
         if (input.action) {
             showcaseSelection_ = (showcaseSelection_ + 1) % 3;
@@ -109,6 +150,15 @@ void Demo::update(float deltaSeconds, const InputState& input) noexcept {
     case DemoKind::AnimationShowcase:
     case DemoKind::AssetStreaming:
         break;
+    }
+
+    if (scene_ != nullptr && playerEntity_) {
+        if (auto* entity = scene_->findEntity(*playerEntity_)) {
+            auto position = entity->transform().localPosition();
+            position.x = playerPosition_.x;
+            position.y = playerPosition_.y;
+            static_cast<void>(entity->transform().setLocalPosition(position));
+        }
     }
 }
 
@@ -227,6 +277,13 @@ void Demo::renderTopDown() noexcept {
         const auto y = framebuffer_.height() / 2 + static_cast<int>(std::sin(angle) * radiusY);
         framebuffer_.fillRect(x - 4, y - 4, 8, 8, {205, 70, 72, 255});
     }
+    for (const auto& projectile : projectiles_.projectiles()) {
+        if (projectile.active) {
+            framebuffer_.fillRect(static_cast<int>(projectile.position.x) - 1,
+                                  static_cast<int>(projectile.position.y) - 1, 3, 3,
+                                  {246, 213, 91, 255});
+        }
+    }
     framebuffer_.fillRect(static_cast<int>(playerPosition_.x) - 5,
                           static_cast<int>(playerPosition_.y) - 5, 11, 11, {70, 180, 220, 255});
     framebuffer_.drawLine(static_cast<int>(playerPosition_.x), static_cast<int>(playerPosition_.y),
@@ -240,6 +297,9 @@ void Demo::renderRaycast() noexcept {
     static_cast<void>(raycastRenderer_.render(raycastMap_, raycastCamera_, billboards));
     framebuffer_.fillRect(framebuffer_.width() / 2 - 4, framebuffer_.height() - 25, 8, 22,
                           {70, 75, 82, 255});
+    const auto doorWidth = static_cast<int>(fpsDoor_.openness * 36.0F);
+    framebuffer_.fillRect(8, 8, 38, 5, {48, 53, 62, 255});
+    framebuffer_.fillRect(9, 9, doorWidth, 3, {205, 160, 61, 255});
 }
 
 void Demo::renderRacer() noexcept {
@@ -251,8 +311,10 @@ void Demo::renderRacer() noexcept {
 
 void Demo::renderLowPoly() noexcept {
     framebuffer_.clear({24, 28, 38, 255});
-    const auto model = Mat4::translation({0.0F, 0.0F, 1.0F}) * Mat4::rotationY(cubeAngle_) *
-                       Mat4::rotationX(cubeAngle_ * 0.63F);
+    const auto model = Mat4::translation({thirdPersonState_.position.x,
+                                          thirdPersonState_.position.y,
+                                          thirdPersonState_.position.z}) *
+                       Mat4::rotationY(cubeAngle_) * Mat4::rotationX(cubeAngle_ * 0.63F);
     static_cast<void>(lowPolyRenderer_.render(cube_, model, {}));
 }
 

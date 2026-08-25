@@ -29,12 +29,6 @@ namespace {
     return Result<void>::success();
 }
 
-[[nodiscard]] float readSample(const AudioClipView& clip, std::size_t frame,
-                               std::size_t channel) noexcept {
-    const auto channels = static_cast<std::size_t>(clip.channelCount);
-    return clip.interleavedSamples[frame * channels + channel];
-}
-
 } // namespace
 
 AudioMixer::AudioMixer(AudioMixerConfig config) : config_(config) {
@@ -117,7 +111,8 @@ const AudioBusSettings* AudioMixer::busSettings(AudioBusId id) const noexcept {
 }
 
 Result<AudioVoiceId> AudioMixer::play(AudioClipView clip, AudioVoiceSettings settings) {
-    if (clip.interleavedSamples == nullptr || clip.frameCount == 0) {
+    if ((clip.interleavedSamples == nullptr && clip.frameReader == nullptr) ||
+        clip.frameCount == 0) {
         return Result<AudioVoiceId>::failure(
             Error(ErrorCode::InvalidArgument, "audio clip must contain at least one frame"));
     }
@@ -172,6 +167,8 @@ Result<AudioVoiceId> AudioMixer::play(AudioClipView clip, AudioVoiceSettings set
     selected->settings = settings;
     selected->framePosition = 0.0;
     selected->startSequence = ++startSequence_;
+    selected->streamCacheFirstFrame = 0U;
+    selected->streamCacheFrameCount = 0U;
     selected->active = true;
     ++voicesStarted_;
     return Result<AudioVoiceId>::success(selected->id);
@@ -246,8 +243,8 @@ Result<void> AudioMixer::render(std::size_t frameCount, IAudioOutputBackend& bac
 
 AudioMixerStats AudioMixer::stats() const noexcept {
     return {
-        activeVoiceCount_, voices_.size(),  voicesStarted_,
-        voicesStolen_,     voicesRejected_, mixedFrames_,
+        activeVoiceCount_, voices_.size(),      voicesStarted_,  voicesStolen_,    voicesRejected_,
+        mixedFrames_,      streamCacheRefills_, streamedFrames_, streamUnderruns_,
     };
 }
 
@@ -316,6 +313,35 @@ void AudioMixer::deactivate(Voice& voice) noexcept {
     }
 }
 
+float AudioMixer::readSample(Voice& voice, const std::size_t frame,
+                             const std::size_t channel) noexcept {
+    const auto channels = static_cast<std::size_t>(voice.clip.channelCount);
+    if (voice.clip.interleavedSamples != nullptr) {
+        return voice.clip.interleavedSamples[frame * channels + channel];
+    }
+    if (voice.clip.frameReader == nullptr || frame >= voice.clip.frameCount ||
+        channel >= channels) {
+        return 0.0F;
+    }
+    const auto cacheEnd = voice.streamCacheFirstFrame + voice.streamCacheFrameCount;
+    if (voice.streamCacheFrameCount == 0U || frame < voice.streamCacheFirstFrame ||
+        frame >= cacheEnd) {
+        const auto requested = std::min(Voice::StreamCacheFrames, voice.clip.frameCount - frame);
+        std::fill_n(voice.streamCache.data(), requested * channels, 0.0F);
+        const auto read =
+            std::min(requested, voice.clip.frameReader(voice.clip.readerContext, frame,
+                                                       voice.streamCache.data(), requested));
+        voice.streamCacheFirstFrame = frame;
+        voice.streamCacheFrameCount = requested;
+        ++streamCacheRefills_;
+        streamedFrames_ += static_cast<std::uint64_t>(read);
+        if (read != requested) {
+            ++streamUnderruns_;
+        }
+    }
+    return voice.streamCache[(frame - voice.streamCacheFirstFrame) * channels + channel];
+}
+
 void AudioMixer::mixVoice(Voice& voice, float* output, std::size_t frameCount) noexcept {
     const auto* voiceBus = findBus(voice.settings.bus);
     const auto* masterBus = findBus(MasterAudioBus);
@@ -363,15 +389,18 @@ void AudioMixer::mixVoice(Voice& voice, float* output, std::size_t frameCount) n
         float left = 0.0F;
         float right = 0.0F;
         if (voice.clip.channelCount == 1) {
-            const float sample = interpolate(readSample(voice.clip, firstFrame, 0),
-                                             readSample(voice.clip, secondFrame, 0));
+            const auto firstSample = readSample(voice, firstFrame, 0);
+            const auto secondSample = readSample(voice, secondFrame, 0);
+            const float sample = interpolate(firstSample, secondSample);
             left = sample;
             right = sample;
         } else {
-            left = interpolate(readSample(voice.clip, firstFrame, 0),
-                               readSample(voice.clip, secondFrame, 0));
-            right = interpolate(readSample(voice.clip, firstFrame, 1),
-                                readSample(voice.clip, secondFrame, 1));
+            const auto firstLeft = readSample(voice, firstFrame, 0);
+            const auto firstRight = readSample(voice, firstFrame, 1);
+            const auto secondLeft = readSample(voice, secondFrame, 0);
+            const auto secondRight = readSample(voice, secondFrame, 1);
+            left = interpolate(firstLeft, secondLeft);
+            right = interpolate(firstRight, secondRight);
         }
 
         output[outputFrame * 2U] += left * leftGain;

@@ -78,6 +78,92 @@ Result<void> AssetDatabase::move(const AssetGuid& guid, std::string newRelativeP
     return Result<void>::success();
 }
 
+Result<void> AssetDatabase::setImportConfiguration(const AssetGuid& guid,
+                                                   const std::uint32_t importerVersion,
+                                                   const std::uint64_t settingsFingerprint) {
+    auto record = records_.find(guid);
+    if (record == records_.end()) {
+        return Result<void>::failure(Error(ErrorCode::NotFound, "asset GUID was not found")
+                                         .addContext("guid", guid.toString()));
+    }
+    if (importerVersion == 0U) {
+        return Result<void>::failure(
+            Error(ErrorCode::InvalidArgument, "asset importer version cannot be zero"));
+    }
+    record->second.importerVersion = importerVersion;
+    record->second.settingsFingerprint = settingsFingerprint;
+    return Result<void>::success();
+}
+
+Result<void> AssetDatabase::markImported(const AssetGuid& guid,
+                                         const std::uint64_t expectedSourceFingerprint,
+                                         const std::uint64_t cacheKey) {
+    auto record = records_.find(guid);
+    if (record == records_.end()) {
+        return Result<void>::failure(Error(ErrorCode::NotFound, "asset GUID was not found")
+                                         .addContext("guid", guid.toString()));
+    }
+    if (record->second.missing || record->second.sourceFingerprint != expectedSourceFingerprint) {
+        return Result<void>::failure(
+            Error(ErrorCode::InvalidState, "asset changed while it was being imported")
+                .addContext("guid", guid.toString()));
+    }
+    if (cacheKey == 0U) {
+        return Result<void>::failure(
+            Error(ErrorCode::InvalidArgument, "asset import cache key cannot be zero"));
+    }
+    record->second.importedSourceFingerprint = record->second.sourceFingerprint;
+    record->second.importedSettingsFingerprint = record->second.settingsFingerprint;
+    record->second.importedVersion = record->second.importerVersion;
+    record->second.lastImportCacheKey = cacheKey;
+    return Result<void>::success();
+}
+
+Result<AssetSyncResult>
+AssetDatabase::synchronizeSources(const std::vector<AssetSourceState>& sources) {
+    std::unordered_map<std::string, std::uint64_t> observed;
+    observed.reserve(sources.size());
+    for (const auto& source : sources) {
+        if (!isSafeRelativePath(source.relativePath)) {
+            return Result<AssetSyncResult>::failure(
+                Error(ErrorCode::InvalidArgument, "source snapshot contains an unsafe path")
+                    .addContext("path", source.relativePath));
+        }
+        const auto path = normalizePath(source.relativePath);
+        if (!observed.emplace(path, source.fingerprint).second) {
+            return Result<AssetSyncResult>::failure(
+                Error(ErrorCode::AlreadyExists, "source snapshot repeats a normalized path")
+                    .addContext("path", path));
+        }
+    }
+
+    AssetSyncResult result;
+    for (auto& pair : records_) {
+        auto& record = pair.second;
+        const auto source = observed.find(record.relativePath);
+        if (source == observed.end()) {
+            record.missing = true;
+            result.missing.push_back(pair.first);
+            continue;
+        }
+        record.missing = false;
+        record.sourceFingerprint = source->second;
+        (needsImport(pair.first) ? result.dirty : result.unchanged).push_back(pair.first);
+        observed.erase(source);
+    }
+    for (const auto& pair : observed) {
+        result.untrackedPaths.push_back(pair.first);
+    }
+    const auto sortGuids = [](std::vector<AssetGuid>& values) {
+        std::sort(values.begin(), values.end());
+    };
+    sortGuids(result.dirty);
+    sortGuids(result.unchanged);
+    sortGuids(result.missing);
+    std::sort(result.untrackedPaths.begin(), result.untrackedPaths.end());
+    return Result<AssetSyncResult>::success(std::move(result));
+}
+
 const AssetRecord* AssetDatabase::find(const AssetGuid& guid) const noexcept {
     const auto record = records_.find(guid);
     return record == records_.end() ? nullptr : &record->second;
@@ -86,6 +172,15 @@ const AssetRecord* AssetDatabase::find(const AssetGuid& guid) const noexcept {
 const AssetRecord* AssetDatabase::findByPath(const std::string& relativePath) const noexcept {
     const auto path = paths_.find(normalizePath(relativePath));
     return path == paths_.end() ? nullptr : find(path->second);
+}
+
+bool AssetDatabase::needsImport(const AssetGuid& guid) const noexcept {
+    const auto* record = find(guid);
+    return record != nullptr && !record->missing &&
+           (record->lastImportCacheKey == 0U ||
+            record->sourceFingerprint != record->importedSourceFingerprint ||
+            record->settingsFingerprint != record->importedSettingsFingerprint ||
+            record->importerVersion != record->importedVersion);
 }
 
 Result<std::vector<AssetGuid>> AssetDatabase::buildOrder() const {

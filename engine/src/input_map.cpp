@@ -189,7 +189,9 @@ void InputMap::update() {
                 continue;
             float value = 0.0F;
             for (const auto& binding : axisBinding.second) {
-                value += controlValue(binding.control) * binding.scale;
+                const auto control = controlValue(binding.control);
+                if (std::fabs(control) >= binding.threshold)
+                    value += control * binding.scale;
             }
             currentAxes.emplace(axisBinding.first, std::clamp(value, -1.0F, 1.0F));
         }

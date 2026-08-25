@@ -27,6 +27,50 @@ void Entity::setActive(bool active) {
     }
 }
 
+Result<Component*> Entity::addComponent(std::unique_ptr<Component> component) {
+    auto* raw = component.get();
+    auto attached = addComponentInternal(std::move(component));
+    if (!attached) {
+        return Result<Component*>::failure(attached.error());
+    }
+    return Result<Component*>::success(raw);
+}
+
+Result<void> Entity::removeComponent(ComponentTypeGuid typeId) {
+    if (typeId == TransformComponent::staticTypeId()) {
+        return Result<void>::failure(
+            Error(ErrorCode::InvalidArgument, "Transform cannot be removed from an entity")
+                .addContext("entity", id_.toString()));
+    }
+    if (destroyed_) {
+        return Result<void>::failure(
+            Error(ErrorCode::InvalidState, "cannot remove a component from a destroyed entity")
+                .addContext("entity", id_.toString()));
+    }
+    const auto iterator = std::find_if(components_.begin(), components_.end(),
+                                       [typeId](const std::unique_ptr<Component>& component) {
+                                           return component->typeId() == typeId;
+                                       });
+    if (iterator == components_.end()) {
+        return Result<void>::failure(Error(ErrorCode::NotFound, "entity component was not found")
+                                         .addContext("entity", id_.toString())
+                                         .addContext("type_id", typeId.toString()));
+    }
+
+    auto& component = **iterator;
+    if (component.active_) {
+        component.active_ = false;
+        component.onDisable();
+    }
+    if (component.created_ && !component.destroyed_) {
+        component.destroyed_ = true;
+        component.onDestroy();
+    }
+    component.owner_ = nullptr;
+    components_.erase(iterator);
+    return Result<void>::success();
+}
+
 Result<void> Entity::addComponentInternal(std::unique_ptr<Component> component) {
     if (!component) {
         return Result<void>::failure(Error(ErrorCode::InvalidArgument, "component cannot be null"));

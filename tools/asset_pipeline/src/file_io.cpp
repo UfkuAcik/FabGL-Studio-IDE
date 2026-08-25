@@ -37,6 +37,41 @@ Result<std::wstring> toWide(const std::string& value) {
     std::wstring result(static_cast<std::size_t>(count), L'\0');
     MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()),
                         result.data(), count);
+    std::replace(result.begin(), result.end(), L'/', L'\\');
+    // The extended Win32 namespace deliberately disables `.` and `..` processing. Normalize
+    // before adding its prefix; otherwise an ordinary absolute project path combined with a
+    // projectRoot of "." becomes a valid-looking path that CreateFileW rejects with code 3.
+    if (result.rfind(L"\\\\?\\UNC\\", 0U) == 0U) {
+        result = L"\\\\" + result.substr(8U);
+    } else if (result.rfind(L"\\\\?\\", 0U) == 0U) {
+        result.erase(0U, 4U);
+    }
+    const auto required = GetFullPathNameW(result.c_str(), 0U, nullptr, nullptr);
+    if (required == 0U || required > 32768U) {
+        return Result<std::wstring>::failure(
+            Error(ErrorCode::InvalidArgument, "path cannot be normalized")
+                .addContext("win32", std::to_string(GetLastError())));
+    }
+    std::wstring normalized(static_cast<std::size_t>(required), L'\0');
+    const auto written = GetFullPathNameW(result.c_str(), required, normalized.data(), nullptr);
+    if (written == 0U || written >= required) {
+        return Result<std::wstring>::failure(
+            Error(ErrorCode::InvalidArgument, "path cannot be normalized")
+                .addContext("win32", std::to_string(GetLastError())));
+    }
+    normalized.resize(static_cast<std::size_t>(written));
+    result = std::move(normalized);
+    // Win32's legacy MAX_PATH parsing can fail even when the filesystem and C++ runtime accept
+    // the path. Absolute drive and UNC paths use the extended namespace consistently so atomic
+    // writes remain valid for deeply nested projects and package staging directories.
+    if (result.rfind(L"\\\\?\\", 0U) != 0U) {
+        if (result.size() >= 3U && result[1] == L':' && result[2] == L'\\') {
+            result.insert(0U, L"\\\\?\\");
+        } else if (result.rfind(L"\\\\", 0U) == 0U) {
+            result.erase(0U, 2U);
+            result.insert(0U, L"\\\\?\\UNC\\");
+        }
+    }
     return Result<std::wstring>::success(std::move(result));
 }
 

@@ -1,10 +1,35 @@
 #include "fabgl/core/guid.h"
 
 #include <array>
+#include <atomic>
 #include <cctype>
+#include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <functional>
 #include <iomanip>
 #include <random>
 #include <sstream>
+#include <thread>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+// MinGW's bcrypt declarations depend on the Win32 base typedefs above.
+#include <bcrypt.h>
+#elif defined(__linux__)
+#include <sys/random.h>
+#include <unistd.h>
+#elif defined(__APPLE__)
+#include <cstdlib>
+#include <unistd.h>
+#endif
 
 namespace fabgl::detail {
 namespace {
@@ -29,22 +54,101 @@ std::uint64_t fnv1a(std::string_view text, std::uint64_t basis) {
     return hash;
 }
 
+bool fillFromSystemRandom(GuidBytes& bytes) noexcept {
+#if defined(_WIN32)
+    const auto status = BCryptGenRandom(nullptr, bytes.data(), static_cast<ULONG>(bytes.size()),
+                                        BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    return status >= 0;
+#elif defined(__linux__)
+    std::size_t offset = 0U;
+    while (offset < bytes.size()) {
+        const auto count = ::getrandom(bytes.data() + offset, bytes.size() - offset, 0);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        return false;
+    }
+    return true;
+#elif defined(__APPLE__)
+    arc4random_buf(bytes.data(), bytes.size());
+    return true;
+#else
+    return false;
+#endif
+}
+
+std::uint64_t currentProcessId() noexcept {
+#if defined(_WIN32)
+    return static_cast<std::uint64_t>(GetCurrentProcessId());
+#elif defined(__linux__) || defined(__APPLE__)
+    return static_cast<std::uint64_t>(::getpid());
+#else
+    return 0U;
+#endif
+}
+
+std::uint32_t lowerHalf(std::uint64_t value) noexcept {
+    return static_cast<std::uint32_t>(value & 0xFFFFFFFFULL);
+}
+
+std::uint32_t upperHalf(std::uint64_t value) noexcept {
+    return static_cast<std::uint32_t>(value >> 32U);
+}
+
+void fillFromFallback(GuidBytes& bytes) {
+    static std::atomic<std::uint64_t> sequence{0U};
+    const auto serial = sequence.fetch_add(1U, std::memory_order_relaxed) + 1U;
+    const auto wallClock = static_cast<std::uint64_t>(
+        std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    const auto monotonicClock =
+        static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto process = currentProcessId();
+    const auto thread =
+        static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    const auto address = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(&bytes));
+
+    std::uint32_t randomOne = 0U;
+    std::uint32_t randomTwo = 0U;
+    try {
+        std::random_device random;
+        randomOne = static_cast<std::uint32_t>(random());
+        randomTwo = static_cast<std::uint32_t>(random());
+    } catch (...) {
+        // Clock, process, address, thread and the atomic sequence still prevent the deterministic
+        // random_device behavior found in older MinGW runtimes from repeating a whole stream.
+    }
+
+    std::seed_seq seed{lowerHalf(serial),
+                       upperHalf(serial),
+                       lowerHalf(wallClock),
+                       upperHalf(wallClock),
+                       lowerHalf(monotonicClock),
+                       upperHalf(monotonicClock),
+                       lowerHalf(process),
+                       upperHalf(process),
+                       lowerHalf(thread),
+                       upperHalf(thread),
+                       lowerHalf(address),
+                       upperHalf(address),
+                       randomOne,
+                       randomTwo};
+    std::mt19937_64 generator(seed);
+    for (std::size_t offset = 0U; offset < bytes.size(); offset += sizeof(std::uint64_t)) {
+        const auto value = generator();
+        for (std::size_t index = 0U; index < sizeof(std::uint64_t); ++index)
+            bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8U));
+    }
+}
+
 } // namespace
 
 GuidBytes generateGuidBytes() {
-    thread_local std::mt19937_64 generator([] {
-        std::random_device device;
-        std::seed_seq seed{device(), device(), device(), device(), device(), device()};
-        return std::mt19937_64(seed);
-    }());
-
     GuidBytes bytes{};
-    for (std::size_t offset = 0; offset < bytes.size(); offset += sizeof(std::uint64_t)) {
-        const auto value = generator();
-        for (std::size_t index = 0; index < sizeof(std::uint64_t); ++index) {
-            bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8U));
-        }
-    }
+    if (!fillFromSystemRandom(bytes))
+        fillFromFallback(bytes);
     bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0FU) | 0x40U);
     bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3FU) | 0x80U);
     return bytes;
