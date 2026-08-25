@@ -33,10 +33,11 @@ render presentation, audio output, persistence, and diagnostics.
 ## Engine execution
 
 The common loop has explicit phases: initialize, load resources, load scene, fixed update,
-physics, variable update, animation, audio, render submission, render, present, and shutdown.
-A bounded accumulator prevents a stalled frame from creating an unbounded fixed-update burst.
-Profiler samples identify whether values are measured on PC, measured on ESP32, or estimated
-by a budget model.
+physics, variable update, AI/gameplay, animation, audio, asset streaming, render submission,
+render, present, and shutdown. A bounded accumulator prevents a stalled frame from creating an
+unbounded fixed-update burst. Every per-frame phase records its own measured CPU duration in
+`FrameMetrics`; profiler samples additionally identify whether a value was measured on PC,
+measured on ESP32, or estimated by a budget model.
 
 ## Entity/component model
 
@@ -53,16 +54,17 @@ transforms are evaluated parent-first and cached.
 
 ## Data and persistence
 
-Source formats (`.fglproject`, `.fglscene`, `.fglprefab`, `.fglmaterial`, `.fglanim`,
-`.fglcontroller`, `.fglvisual`, `.fgltrack`, `.fgltileset`) are UTF-8, explicitly versioned,
-and use relative normalized paths. Entities and assets retain GUID identity through rename or
-move. Readers validate schema/version and return structured errors instead of partially
-loading corrupt data.
+Text source formats (`.fglproject`, `.fglscene`, `.fglprefab`, `.fglmaterial`, `.fglanim`,
+`.fglcontroller`, `.fglvisual`, `.fgltrack`) are UTF-8, explicitly versioned, and use relative
+normalized paths. Canonical tilemaps and tilesets use bounded binary `FGLT`/`FGLX` serializers
+with magic, version, exact length and GUID references. Entities and assets retain GUID identity
+through rename or move. Readers validate schema/version and return structured errors instead of
+partially loading corrupt data.
 
 Writes use a same-directory temporary file followed by atomic replacement where the platform
-supports it. Backup rotation and recovery metadata are editor services. Game save slots use a
-separate checksummed, migratable format; scene serialization is never reused as a save-game
-shortcut.
+supports it. Editor recovery metadata is an editor service. Game save slots use a separate
+checksummed, migratable format with memory and directory/SD backends, bounded file reads, atomic
+replacement, and backup rotation; scene serialization is never reused as a save-game shortcut.
 
 `.fglpack` is the target artifact: a versioned header and index followed by aligned payloads.
 The index records GUID, kind, offset, compressed size, decoded size, storage class, and

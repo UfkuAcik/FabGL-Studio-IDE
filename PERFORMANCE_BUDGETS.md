@@ -4,18 +4,23 @@ Budgets are validation thresholds, not promises. `Safe`, `Balanced`, and `Maximu
 provide starting points; a project may define `Custom`. The editor labels every value as
 measured-PC, estimated-ESP32, or measured-ESP32.
 
+The persisted schema, exact source labels, warning/error thresholds, and Custom-field contract are
+documented in [docs/PERFORMANCE_BUDGETS.md](docs/PERFORMANCE_BUDGETS.md).
+
+The compact table below lists the ESP32 preset workload limits; PC presets are intentionally
+separate and substantially larger.
+
 | Resource | Safe | Balanced | Maximum | Enforcement point |
 |---|---:|---:|---:|---|
-| Active entities | 128 | 384 | 768 | Scene compile/runtime counter |
-| Active components | 512 | 1,536 | 3,072 | Scene compile/runtime counter |
-| 2D sprite submissions/frame | 128 | 384 | 800 | Renderer counter |
-| Raycast internal width | 160 | 256 | 320 | Build profile/render target |
-| Ray DDA steps/frame | 8,000 | 20,000 | 40,000 | Renderer profiler |
-| Low-poly triangles/frame | 64 | 160 | 320 | Experimental renderer counter |
-| Particles | 64 | 192 | 384 | Fixed pool capacity |
+| Active entities | 96 | 256 | 768 | Scene compile/runtime counter |
+| Active components | 384 | 1,024 | 3,072 | Scene compile/runtime counter |
+| 2D sprite submissions/frame | 256 | 768 | 1,536 | Renderer counter |
+| Draw calls/frame | 32 | 96 | 192 | Renderer counter |
+| Rays/frame | 64 | 192 | 384 | Raycast profiler when available |
+| Low-poly triangles/frame | 256 | 1,024 | 2,048 | Experimental renderer counter |
+| Particles | 256 | 1,024 | 2,048 | Fixed pool capacity |
 | Simultaneous audio voices | 4 | 8 | 12 | Mixer voice allocator |
-| Fixed updates after stall | 3 | 5 | 8 | Engine-loop catch-up clamp |
-| Frame target | 33.3 ms | 33.3 ms | 16.7 ms for simple 2D | Runtime profiler |
+| Frame budget | 16.67 ms | 33.33 ms | 50 ms | Runtime profiler |
 
 Memory thresholds are derived after linking because core/FabGL/static allocations affect the
 available heap. Until physical telemetry is recorded, default warnings reserve headroom:

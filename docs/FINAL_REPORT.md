@@ -1,5 +1,9 @@
 # FabGL Studio 0.1.0 final engineering report
 
+> **Superseded checkpoint.** This 2026-08-01 report is retained as historical evidence and must not
+> be used as the current build or hardware status. See the root [README](../README.md) and
+> [2026-08-25 handoff](HANDOFF.md).
+
 Evidence date: 2026-08-01. This is an engineering preview, not a stable 1.0 release.
 
 ## Product summary

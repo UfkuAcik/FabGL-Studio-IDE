@@ -2,40 +2,37 @@
 
 ## Milestone
 
-**M15 — Final quality pass. Status: partial.**
+**M15 — Final quality pass. Status: complete for locally executable checks.**
 
 ## Completed work
 
-Strict warnings, formatting/static-analysis configuration, Windows/Linux core CI skeleton, source
-policy checks, deterministic renderer goldens, unit/integration-style subsystem tests, licensing
-files, release documentation, and truthful milestone evidence are present.
+Strict warnings-as-errors, formatting/static-analysis configuration, Windows/Linux/Qt/ESP32 CI,
+source-policy and documentation-contract checks, deterministic renderer goldens and replay,
+unit/integration/security/negative-path tests, managed desktop toolchains, packaging smoke tests,
+licensing files, and evidence-based completion documentation are present.
 
-## Changed files
+The Studio tests run offscreen with a 120-second outer guard. This replaces the former 30-second
+guard that could terminate a healthy but slower GUI suite without actionable output. Project-open
+tests use a non-modal error-returning path, so malformed data fails immediately instead of leaving
+headless CI waiting on a message box.
 
-`.clang-format`, `.clang-tidy`, `.github/workflows/ci.yml`, `tests/`, documentation files,
-`packaging/`, and `docs/progress/`.
+## Current local evidence
 
-## Architecture decisions
+- Managed Qt 6.8.3, MinGW 13.1, Release, warnings as errors: Studio target built successfully.
+- `fabgl_studio_smoke_tests`: 19 passed, 0 failed, 0 skipped.
+- Covered paths include project v2 migration/preservation, trust, recovery, code-editor external
+  changes and bounded indexing, serial safety gates, visual/animation panels, layouts, and scene
+  editing.
+- The deterministic PC renderer regression gate is documented in
+  [M15-performance-regression.md](M15-performance-regression.md), including its measured local
+  result, CI budgets and explicit separation from physical ESP32/HIL claims.
 
-Release claims require evidence; estimated PC/ESP32 values and experimental low-poly are labeled.
+The final aggregate CTest/package/HIL counts and artifact hashes belong in the final report after
+the clean end-to-end run.
 
-## Commands run
+## External quality gates
 
-On 2026-08-01, `ctest --preset release` reported **8 passed, 0 failed, 0 skipped** CTest programs.
-This count is programs: first-party binaries contain 63 passing assertions, example integration
-validates and replays all ten projects against exact checksums, and two offline hardware-log
-fixtures cover PASS and expected-FAIL parser branches.
-
-## Test results
-
-- Passed: 8 release CTest programs, 132-file clang-format gate, 44-document/5-ADR contract,
-  strict-warning builds, stage smoke, ZIP/checksum, and workflow lint/actionlint.
-- Failed: 0 executed checks.
-- Skipped: Qt GUI, analyzers/sanitizers, clean machine, NSIS, HIL, soak, and leak tests.
-
-## Remaining work
-
-The CI defines the Release/compiler/Qt/clang-tidy matrix but it has not run on a remote runner yet.
-Qt GUI tests, sanitizer/leak runs, performance regression thresholds, recorded-input replay,
-firmware HIL/soak, Windows 10/11 clean-machine ZIP/installer tests, UI accessibility/polish, and
-signed release notes remain. This repository is therefore not a stable 1.0 release.
+Remote CI status, code signing, long hardware soak, destructive power-loss testing, physical
+peripheral certification, accessibility review, and clean-machine installer UX remain external
+evidence. They do not invalidate local software completion, but they must be completed before a
+stable signed 1.0 release claim.

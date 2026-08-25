@@ -2,43 +2,30 @@
 
 ## Milestone
 
-**M6 — Toolchain and FabGL runtime. Status: partial; hardware validation blocked.**
+**M6 — Toolchain and FabGL runtime. Status: software complete; hardware validation pending.**
 
 ## Completed work
 
-Pinned Arduino-ESP32 2.0.11 and Olimex FabGL commit `04f328a`, recorded checksums, board options and
-pins, implemented verified download/bootstrap, detection and safe compile-command generation, and
-added FabGL diagnostic firmware. Upload and serial monitor are separate scripts requiring an
-explicit port and exact board-profile token; upload is never implicit. An offline-only structured
-log parser covers success and expected-failure fixtures without opening a port.
+Arduino CLI 1.5.1, Arduino-ESP32 2.0.11 and Olimex FabGL commit
+`04f328a10573297dd554f13be7f369cdee0f7a2b` are locked with checksums in the repository-local
+toolchain manifest. Debug, Release, SizeOptimized and PerformanceOptimized profiles perform real
+project export, asset-pack generation, firmware compile/link, map/size/hash reporting and output
+schema validation. Long paths are normalized safely. Detection, upload and serial monitor are
+separate commands; upload requires an explicit port and exact board-profile confirmation.
 
-## Changed files
+## Build evidence
 
-`toolchains/manifest.json`, `tools/toolchain_manager/`, `platforms/fabgl/`, `TOOLCHAIN.md`,
-`HARDWARE_TESTING.md`, `scripts/{bootstrap_toolchain,build_esp32,upload_esp32,serial_monitor}.ps1`,
-`tests/hardware/`, and ADR 0004.
+- Diagnostic Release: 448,976 program bytes.
+- Empty SizeOptimized: 448,848 program bytes.
+- Platformer PerformanceOptimized: 488,496 program bytes and 25,928 / 327,680 RAM bytes.
 
-## Architecture decisions
+These are compiler outputs from the locked FabGL/ESP32 pipeline, not simulated size estimates.
+Profile/port parser and offline diagnostic-log tests pass, and Windows CI contains the ESP32 build
+job.
 
-ADR 0004 documents the compatibility pin and explicit-port upload boundary.
+## Hardware boundary
 
-## Commands run
-
-Arduino CLI 1.5.1 and the exact Olimex FabGL source compiled the diagnostic against the locally
-installed Arduino-ESP32 2.0.11 core. Program storage was 448,757 bytes, globals were 25,920 bytes,
-and the primary 449,120-byte binary has SHA-256
-`87137e737da22ad4e686a7974f8ac35edae881e58c1944c3f0ff794a5ab08a56`.
-`uploadPerformed=false`. **Upload, monitor, VGA, PS/2, audio, SD, PSRAM, reset, FPS, memory, and
-soak tests were skipped** because no board identity was positively confirmed.
-
-## Test results
-
-- Passed: toolchain manager, locked-source firmware compile, and two offline log-fixture CTests.
-- Failed: 0 host CTest programs.
-- Skipped: upload and every physical peripheral/performance/soak check.
-
-## Remaining work
-
-Run a clean fully managed-core build for release attestation, then exercise the explicit upload,
-monitor, and full hardware checklist on a known Olimex board. The release profile keeps PSRAM
-disabled until HIL.
+A CH340 serial interface was detected as `COM5`, but USB-serial detection does not establish the
+attached board identity. No flash, erase, upload or serial-open operation was performed without the
+user confirming both `COM5` and `olimex-esp32-sbc-fabgl-revb`. VGA, PS/2, audio, SD, PSRAM,
+on-device FPS/memory and soak checks therefore remain unverified HIL evidence.

@@ -1,33 +1,34 @@
 # Milestone evidence index
 
-These reports describe repository evidence on 2026-08-01. Status is conservative:
+Evidence was refreshed on 2026-08-09. A status is based on executable repository evidence:
 
-- **complete**: the milestone's narrow acceptance criterion has direct build/test evidence;
-- **partial**: useful implementation exists, but one or more acceptance items are absent or
-  unverified;
-- **blocked**: progress requires unavailable hardware/tooling or external state.
-
-One blocked subcheck does not make an otherwise progressing milestone complete. The shared host
-release validation command was `ctest --preset release`: 8/8 CTest programs passed (toolchain,
-two offline hardware-log branches, engine, rendering, asset/project, frameworks, and ten-example
-integration replay). Qt editor build/visual QA, physical-board upload/peripherals/soak, installer,
-full static analysis, and clean-machine tests were not run in this environment.
+- **complete**: the software exit criteria have direct build/test coverage;
+- **active**: final integration or packaging evidence is still being collected;
+- **software complete / HIL pending**: the implementation and non-destructive tests pass, while a
+  real board or peripheral is required for the remaining observation;
+- **experimental**: implemented and tested, but intentionally outside stable compatibility or
+  hardware-performance promises.
 
 | Milestone | Status | Primary evidence |
 |---:|---|---|
-| 0 | complete | Architecture, risk, licenses, pinned manifest, CMake/CI |
-| 1 | partial | Qt editor source; Qt build unavailable |
-| 2 | complete | Portable engine tests pass |
-| 3 | partial | Deterministic native/headless PC demos; no SDL/audio output |
-| 4 | partial | Scene/Hierarchy/Inspector/play/undo integration source; no Qt run |
-| 5 | partial | Image/audio/asset DB/pack pass; several importers absent |
-| 6 | partial / hardware blocked | Pinned toolchain and firmware compile path; no confirmed board test |
-| 7 | partial | Versioned script API/generator/code editor; no automatic build glue/clangd |
-| 8 | partial | Prefab and animation runtime tests; editor tools incomplete |
-| 9 | partial | Validator/compiler/bytecode VM tests; no node editor/runtime scene binding |
-| 10 | partial | PC raycast renderer/FPS framework pass; no map editor/ESP32 playtest |
-| 11 | partial | PC racer renderer/framework pass; no track editor/opponent demo |
-| 12 | partial | Experimental PC low-poly/TPS logic; no hardware budget evidence |
-| 13 | partial | Audio/particles/UI/navigation/profiler/package foundations; editors absent |
-| 14 | partial | Examples/docs/staged CLI and ZIP pass; no clean-machine artifact proof |
-| 15 | partial | Current tests green; full release-quality matrix not run |
+| 0 | complete | ADRs, risks, licensing, manifests, CI and documentation contracts |
+| 1 | complete | Managed Qt editor build and offscreen interaction/settings tests |
+| 2 | complete | ECS/lifecycle/reflection, strict scene v2 and frozen v1 migration tests |
+| 3 | complete | Native PC player/audio plus deterministic renderer goldens |
+| 4 | complete | Reflected Inspector, gizmos, play isolation and undo/redo Qt tests |
+| 5 | complete for supported inputs | Asset DB/cache, image/audio/font/tilemap/OBJ/thumbnail and pack tests |
+| 6 | software complete / HIL pending | Locked real firmware profiles and safe detection/upload/monitor contracts |
+| 7 | complete with restart fallback | Generated script glue and installed-SDK external compile/link diagnostics |
+| 8 | complete | Nested prefab hierarchy plus strict prefab/clip/controller formats and Animator runtime/editor |
+| 9 | complete | Typed node registry/editor, strict `.fglvisual`, compiler and bounded VM |
+| 10 | complete runtime path | Raycast renderer/FPS framework deterministic replay |
+| 11 | complete runtime path | Racer renderer/framework deterministic replay |
+| 12 | experimental | Low-poly/TPS/Physics3D software tests; no hardware budget claim |
+| 13 | active | Animator, memory/profiler, save persistence and local package manager integration |
+| 14 | active | Recovery/trust, ten examples, portable/NSIS pipelines; final artifact pass pending |
+| 15 | active | Strict suites and labeled PC performance gate are green; final package run pending |
+
+Physical upload is intentionally not performed from detection alone. It requires the user to
+confirm both the exact serial port and the exact board profile. Consequently, HIL and soak entries
+remain unverified until that boundary is satisfied; offline fixtures are never reported as
+hardware evidence.

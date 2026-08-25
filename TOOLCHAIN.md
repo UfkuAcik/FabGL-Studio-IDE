@@ -1,4 +1,56 @@
-# ESP32/FabGL toolchain
+# Locked toolchains
+
+## Windows desktop SDK
+
+The Windows release SDK is locked by
+[`toolchains/desktop-manifest.json`](toolchains/desktop-manifest.json). It installs
+inside the repository so Qt and the application compiler always use the same ABI:
+
+| Component | Lock |
+| --- | --- |
+| Qt | 6.8.3, `win64_mingw`, `qtbase` archive |
+| Compiler | Qt MinGW 13.1.0, `x86_64-w64-mingw32` |
+| Installer client | aqtinstall 3.3.0 in `.toolchains/python-packages` |
+| Package generator | NSIS 3.12 in `.toolchains/NSIS` |
+| Build system | CMake 3.24+, `MinGW Makefiles` |
+
+Run the idempotent bootstrap from a Windows x86-64 host:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap_desktop.ps1
+```
+
+Before any download it checks Python and free space. On an existing installation it
+checks every required Qt binary/plugin, Qt's reported prefix and `win32-g++` spec,
+the exact compiler version, and the target triple. A relocated or mismatched SDK is
+rejected and rebuilt through a unique staging directory. aqtinstall is installed at
+the exact manifest version and its normal archive checksum verification remains
+enabled. `-DryRun` reports validation status and the exact argument arrays without
+changing the filesystem; `-Force` atomically replaces the managed copies.
+
+The same manifest pins the NSIS 3.12 source and SHA-256. Bootstrap or repair the
+repository-local package generator with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap_nsis.ps1
+```
+
+`build_desktop.ps1 -RequireInstaller` runs this step automatically, validates
+`makensis /VERSION`, and rejects unpinned generators.
+
+The corresponding build command is:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_desktop.ps1 `
+  -Configuration Release -RunGuiSmoke -RequireInstaller
+```
+
+It uses explicit CMake argument arrays and the compiler paths from the manifest. It
+never accepts a configure that silently omits Studio, and packaging is rejected unless
+the deployed Studio, Qt DLLs and platform plugins, player, tools, documentation,
+examples, and checksums all pass validation.
+
+## ESP32/FabGL toolchain
 
 The release profile is a reproducible, repository-scoped Arduino build for the
 Olimex ESP32-SBC-FabGL Rev B. The machine-wide Arduino installation is never
@@ -36,6 +88,25 @@ The board physically has 8 MiB PSRAM. `PSRAM=disabled` follows the Olimex/FabGL
 reference setup and avoids changing allocator/compiler behavior unnoticed. Use
 `scripts/build_esp32.ps1 -EnablePsram` only for the explicit experimental
 profile described in `HARDWARE_TESTING.md`.
+
+The build script exposes four real compiler profiles. They all retain the
+verified `huge_app` partition; Debug additionally selects the core's real
+`DebugLevel=debug` board option. The final flags are passed as Arduino
+`compiler.cpp.extra_flags` and `compiler.c.extra_flags`, after the core's
+default `-Os`, so the selected optimization wins rather than serving as a
+display-only label.
+
+| `-BuildProfile` | Effective profile flags |
+| --- | --- |
+| `Debug` | `-Og -g3 -fno-omit-frame-pointer`, DebugLevel `debug` |
+| `Release` | `-O2 -g1 -DNDEBUG` |
+| `SizeOptimized` | `-Os -g0 -ffunction-sections -fdata-sections -DNDEBUG` |
+| `PerformanceOptimized` | `-O3 -g0 -funroll-loops -DNDEBUG` |
+
+Every profile also defines a distinct `FABGL_STUDIO_PROFILE_*` macro. Use
+`-DryRun` to inspect the full FQBN, partition size, and build properties without
+exporting, compiling, opening a port, or uploading. Automated tests require all
+four compiler contracts to be distinct.
 
 The exact Olimex commit adds optional CH32V003 drivers containing five C++11
 list-initialization narrowing diagnostics. Arduino-ESP32's `all` warning preset
@@ -112,6 +183,31 @@ With a fully managed bootstrap:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_esp32.ps1 -Clean
 ```
 
+To export and compile a real Studio project in one command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_esp32.ps1 `
+  -ProjectPath examples\platformer\Platformer.fglproject `
+  -BuildProfile PerformanceOptimized -Clean `
+  -OutputRoot out\esp32\platformer
+```
+
+`-ProjectPath` invokes `fabgl_project_cli export-esp32`, creates an isolated
+Arduino sketch under `<OutputRoot>/staged/`, canonicalizes the startup scene to
+`fglscene 2`, sorts and packs `Assets/`, and generates `ProjectPayload.h`
+(`PROGMEM`), `ProjectPayload.fglpak`, and `ExportResult.json`. The exporter is
+deterministic and rejects traversal, links, payloads over 2 MiB, corrupt scenes,
+reserved names, and existing output paths. `-Clean` replaces only a staged
+directory carrying valid exporter ownership metadata; arbitrary directories
+are never recursively removed. Desktop C++ gameplay code is never compiled by
+the Xtensa toolchain: projects that contain it must provide the bounded companion
+under `Scripts/ESP32`. The exporter copies only validated portable companion
+sources and fails explicitly if the desktop module has no target implementation.
+
+The current allocation-free target contract accepts at most 48 entities, 64
+assets and 128 live particles. Host validation mirrors these values so an
+oversized project fails before invoking Arduino CLI.
+
 For an explicitly non-release check using the user's installed core and FabGL:
 
 ```powershell
@@ -122,25 +218,31 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_esp32.ps1 `
 The build script checks Arduino-ESP32 `2.0.11`, FabGL `1.0.9`, the FQBN, and the
 managed FabGL commit marker when applicable. It invokes Arduino CLI with a
 PowerShell argument array; paths are never concatenated into a shell command.
+On Windows it temporarily maps the repository to an unused drive letter to
+avoid Arduino-ESP32's very long SDK include command exceeding CreateProcess
+limits, and removes that mapping in a `finally` block.
 It rejects `upload`, `--upload`, and `-u` internally. Output is written under
 `out/esp32/`, including `build-result.json` with hashes, sizes, compiler
-contract, CLI/config paths, and an explicit `uploadPerformed=false` record.
+contract, verified partition CSV hash, map/ELF hashes, parsed flash/RAM analysis,
+project payload identity, CLI/config paths, and an explicit
+`uploadPerformed=false` record.
 
-The exact-fork integration build performed on 2026-08-01 used the locked
-Arduino CLI `1.5.1`, installed Arduino-ESP32 `2.0.11`, and the checksummed
-Olimex FabGL commit. It passed:
+Managed compile-only integration on 2026-08-09 used the locked Arduino CLI
+`1.5.1`, repository-local Arduino-ESP32 `2.0.11`, and checksummed Olimex FabGL
+commit. No serial port was opened. It passed:
 
 ```text
-Program reported by Arduino CLI: 448,757 bytes / 3,145,728 bytes (14%)
-Primary firmware.ino.bin:        449,120 bytes
-Global variables:                 25,920 bytes / 327,680 bytes (7%)
-Remaining dynamic memory:        301,760 bytes
-Primary binary SHA-256:          87137e737da22ad4e686a7974f8ac35edae881e58c1944c3f0ff794a5ab08a56
+Diagnostic Release:          448,976-byte BIN, SHA-256 cc7f3cc859c7965de5834f095b5b6cf5871ba6cd3f2924e5d151e6bacb72ac66
+Empty SizeOptimized:         448,848-byte BIN, SHA-256 2fe3124a9d7614cffa4f23bf0c3a71a3814f495502ed5f6ee48a095bd0b0788b
+Platformer Performance:      488,496-byte BIN, SHA-256 b133e08a82a2a6e1346f12936e9008384e07e79a15b299d8fb998cd02cfb0ba7
+Platformer Arduino report:   488,133 bytes / 3,145,728 bytes (15%)
+Platformer global variables:  25,928 bytes / 327,680 bytes (7%)
+Platformer payload:            1,609 bytes, SHA-256 1a74cfbcdeeaf12c824a728b4309db0e072272102c983e62c2fb291ccfc9d206
 ```
 
-The selected core came from the user's Arduino data directory, so this is an
-exact-source integration result rather than a release attestation. A release
-build must report `toolchainMode=managed` and `fabglCommitVerified=true`.
+All three results report `toolchainMode=managed`,
+`fabglCommitVerified=true`, `PartitionScheme=huge_app`, and
+`uploadPerformed=false`.
 
 ## Explicit upload and serial monitor
 

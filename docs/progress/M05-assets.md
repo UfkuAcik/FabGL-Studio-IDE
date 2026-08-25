@@ -2,35 +2,19 @@
 
 ## Milestone
 
-**M5 — Asset pipeline. Status: partial.**
+**M5 — Asset pipeline. Status: complete for documented source formats.**
 
 ## Completed work
 
-Implemented a stable-GUID asset database with path normalization/moves/dependency ordering, Windows
-image decode and indexed conversion, PCM WAV conversion, atomic file I/O, deterministic binary
-pack build/inspection, checksums, storage classes, and cost estimates.
-
-## Changed files
-
-`tools/asset_pipeline/`, `ASSET_PIPELINE.md`, `FILE_FORMATS.md`, and
-`tests/asset_pipeline_tests.cpp`.
-
-## Architecture decisions
-
-ADR 0003 separates readable source formats from bounded target artifacts.
-
-## Commands run
-
-PNG, WAV, Unicode-path, pack, and pack-inspection smoke commands were run. The asset/project CTest
-program passed; the release suite passed 8/8.
+The pipeline has a stable-GUID database, source fingerprint/import-settings cache keys, dependency
+ordering, safe relative paths and source/sidecar moves. It imports Windows WIC raster images,
+palette/dither/crop/grid/atlas data, PCM WAV with target conversion/compression, CSV/JSON tilemaps,
+OBJ meshes and BDF fonts; it generates thumbnails and deterministic bounded `.fglpack` payloads.
+Streaming `.fgla` clips remain compressed and are decoded through allocation-free 128-frame mixer
+windows; PCM and delta window reads, cache refill metrics, and underrun behavior are tested.
 
 ## Test results
 
-- Passed: PNG/WAV conversion smoke, Unicode path, asset/project test executable, pack inspection.
-- Failed: 0 release CTest programs.
-- Skipped: unimplemented importer/cache/editor workflows.
-
-## Remaining work
-
-Linux image decode, metadata sidecars/watchers, incremental cache, font/tilemap/model/atlas/
-thumbnail import, compressed audio, and editor import settings are not implemented.
+Round-trip, corruption, cache invalidation, Unicode/space path, pack inspection and CLI smoke tests
+pass. Unsupported TTF, glTF and non-Windows raster decoding fail explicitly; they are not reported
+as successful imports.

@@ -12,10 +12,11 @@ change its license.
 | Arduino CLI | `1.5.1`, `01f3d4f2ba7c2eaafb5dc710c8a1903af7762fea` | GPL-3.0-only | Separate executable process, not linked into Studio. If redistributed offline, include license and corresponding source offer/bundle. |
 | esptool | `4.5.1` | GPL-2.0-or-later | Separate upload tool. Same redistribution obligations apply to offline bundles. |
 | Qt Core/Gui/Widgets | `6.8.3` desktop profile | LGPL-3.0-only or commercial/GPL alternatives, module dependent | Dynamically linked desktop UI. Ship LGPL text/notices, permit replacement/relinking, and do not apply anti-reverse-engineering terms. No GPL-only Qt modules are selected. |
+| aqtinstall | `3.3.0` from PyPI | MIT | Repository-local Qt downloader. Preserve its license if an offline bootstrap bundle redistributes it. |
 | SDL (optional PC adapter) | selected by desktop lock manifest when enabled | zlib | Preserve copyright/license notice in source/binary distributions. |
 | CMake | host 3.24+ | BSD-3-Clause | Build tool; not linked. Preserve notices if bundled. |
 | Ninja | host 1.10+ | Apache-2.0 | Build tool; not linked. Preserve license/NOTICE if bundled. |
-| NSIS | packaging host tool | zlib | Installer generator; generated installer is not forced under NSIS license. Preserve notice if bundling NSIS itself. |
+| NSIS | `3.12`, SHA-256 pinned desktop packaging tool | zlib | Repository-local installer generator; generated installers are not forced under the NSIS license. Preserve the notice if an offline tool bundle redistributes NSIS. |
 | Olimex ESP32-SBC-FabGL design files | upstream board repository | CERN-OHL-1.2 hardware; GPLv3 software; CC-BY-SA-3.0 documentation | Referenced for pin mapping. No design files are currently vendored. Preserve attribution/share-alike terms if copied. |
 
 Authoritative sources:
@@ -25,6 +26,8 @@ Authoritative sources:
 - Arduino CLI license: <https://github.com/arduino/arduino-cli/blob/v1.5.1/LICENSE.txt>
 - esptool repository: <https://github.com/espressif/esptool>
 - Qt open-source obligations: <https://www.qt.io/licensing/open-source-lgpl-obligations>
+- aqtinstall source/license: <https://github.com/miurahr/aqtinstall>
+- NSIS source/license: <https://sourceforge.net/projects/nsis/files/NSIS%203/3.12/>
 - Olimex board sources: <https://github.com/OLIMEX/ESP32-SBC-FabGL>
 
 FabGL's authors offer commercial licensing separately. A closed-source firmware distribution

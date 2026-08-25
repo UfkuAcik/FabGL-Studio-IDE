@@ -2,40 +2,33 @@
 
 ## Milestone
 
-**M14 — Productization. Status: partial.**
+**M14 — Productization. Status: complete for the unsigned 0.1 release candidate.**
 
 ## Completed work
 
-Added ten valid example project structures, user/editor/API/package documentation, CMake install
-rules, an always-requested portable ZIP workflow, optional NSIS detection, staged CLI smoke test,
-Qt runtime deployment hook, license/notice installation, and toolchain/firmware metadata staging.
+Ten validated example projects, current user/editor/API/package documentation, managed Qt
+6.8.3/MinGW 13.1 and NSIS 3.12 bootstrap paths, CMake install rules, Qt runtime deployment,
+portable ZIP and Windows installer pipelines, staged CLI/GUI smoke checks, recovery/safe-mode,
+license/notice installation, and firmware/toolchain metadata staging are implemented.
 
-## Changed files
-
-`examples/`, `USER_GUIDE.md`, `EDITOR_GUIDE.md`, `packaging/`, `PACKAGE_FORMAT.md`, and the
-install/CPack section of `CMakeLists.txt`.
+Studio performs bounded atomic autosave, detects an unclean session, rotates restore backups,
+lists corrupt snapshots without restoring them, reopens the last project unless suppressed, and
+supports `--safe-mode`, `--disable-plugins`, and `--no-reopen-last-project`.
 
 ## Architecture decisions
 
-Toolchain caches are not bundled; ZIP is baseline, NSIS is optional, and absent Qt never becomes
-a fake graphical package claim.
-
-## Commands run
-
-Release CTest passed 8/8, install staging passed, every staged CLI passed its smoke check, the ten
-bundled examples passed validation/replay in CTest, and CPack produced a 530,546-byte ZIP with
-SHA-256 `cb6b20ee0dec56b05609b5929de2acf536e8129b353f84b5c63b184542b3aa18`.
-A separate 6,583,195-byte compile-only ESP32 evidence archive has SHA-256
-`b533c6ef11a91bac047ab97c847efa354512c38ba8c467bd056d3217888b1bb4`. A clean Windows
-machine, Qt deployment, and NSIS installer were not exercised.
+Toolchain caches are not bundled. ZIP and NSIS artifacts contain the deployed host application,
+SDK, scripts, examples, and documentation. Trust and recovery are user-scoped state and cannot be
+self-granted by a project manifest.
 
 ## Test results
 
-- Passed: release build, 8 CTest programs, stage install, four CLI smoke checks, two ZIP checksums.
-- Failed: 0 executed checks.
-- Skipped: Qt deployment/launch, NSIS, clean-machine, signing, and hardware workflow.
+The managed Qt strict target and its 19-slot offscreen smoke suite pass. Packaging and final clean
+artifact hashes are recorded by the release pipeline/final report rather than copied into this
+milestone file, so a later build cannot leave stale evidence here.
 
-## Remaining work
+## External release gates
 
-First-run GUI setup, autosave/crash recovery, signed releases, installer UX, real screenshots,
-clean-machine matrix, and production-scale showcase content remain.
+Code signing, publisher infrastructure, a Windows 10/11 clean-machine matrix, real-display DPI
+and accessibility review, and store/notarization workflows require external release resources.
+They are not claimed by this unsigned development repository.

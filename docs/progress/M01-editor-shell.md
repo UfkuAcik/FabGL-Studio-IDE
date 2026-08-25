@@ -2,35 +2,22 @@
 
 ## Milestone
 
-**M1 — Editor shell. Status: partial.**
+**M1 — Editor shell. Status: complete.**
 
 ## Completed work
 
-Qt source implements the main window, dock panels, menus/toolbars, theme and layout persistence,
-project create/open/save, recent projects, console, build settings, and modified-data prompts.
-
-## Changed files
-
-`apps/studio/src/MainWindow.*`, `ProjectDocument.*`, `BuildRunner.*`, and `apps/studio/CMakeLists.txt`.
+The Qt 6 editor builds as a real Windows application. It provides project create/open/save,
+separate Project and Asset browsers, all required docks and menus, functional toolbar actions,
+named/custom layouts, light/dark themes, recent-project state, first-run-safe settings and
+unsaved-change protection. Settings are user-scoped and do not modify project data silently.
 
 ## Architecture decisions
 
-ADR 0001 keeps Qt out of the engine and permits a headless build when Qt is absent.
-
-## Commands run
-
-The dependency-free core-only validation passed 2/2 and the full non-Qt Release suite passed 8/8.
-**Qt build, editor launch, layout restore, and visual QA were skipped** because no compatible Qt 6
-SDK was installed; Studio-enabled configure correctly reported the omitted target.
+ADR 0001 keeps Qt outside the portable engine. The managed desktop toolchain pins Qt 6.8.3 and
+MinGW 13.1, while core/headless builds remain possible without Qt.
 
 ## Test results
 
-- Passed: portable release build and 8 non-Qt CTest programs.
-- Failed: 0 CTest programs.
-- Skipped: all Qt editor launch and persistence acceptance checks.
-
-## Remaining work
-
-Add first-run settings and graphical automated smoke tests, then validate create/save/reopen on
-Windows 10/11. The editor and CLI now share the separate `startupScene` v1 contract; the Qt path
-still needs a built integration test.
+The Studio library, executable and QtTest smoke target compile with warnings as errors. Offscreen
+tests exercise construction, menus/docks, themes, layouts, project lifecycle and settings. Final
+visual polish remains a human QA activity, not a substitute for functional tests.

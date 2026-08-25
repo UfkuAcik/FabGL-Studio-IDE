@@ -2,35 +2,34 @@
 
 ## Milestone
 
-**M8 — Prefab and animation. Status: partial.**
+**M8 — Prefab and animation. Status: complete for the v1 authoring scope.**
 
 ## Completed work
 
-Runtime code supports prefab assets/instances, property overrides, apply/revert/unpack-oriented
-data operations, animation curves/events, clips, controller states, transitions, and deterministic
-evaluation. Unit coverage passes.
+Prefabs support stable asset/entity GUIDs, local entity hierarchy, nested dependencies, property
+and added/removed component overrides, apply/revert, missing/cycle diagnostics and unpack. The
+strict canonical `.fglprefab` reader migrates v1 to v2 and bounds entities, components, properties,
+strings and references. Baked instances now persist a canonical, bounded `fglprefabinstance 1`
+link in Scene v2, including source-to-scene GUID mappings and every override class. The Prefab
+Editor discovers those links after reload; revert/apply remain available, missing assets retain a
+visible baked/placeholder instance, and unpack removes the link without deleting the hierarchy.
 
-## Changed files
-
-`engine/include/fabgl/prefab/`, `engine/src/prefab.cpp`, `engine/include/fabgl/animation/`,
-`engine/src/animation.cpp`, and associated tests.
-
-## Architecture decisions
-
-Prefab identity and dependencies use stable GUIDs; runtime structures are independent of Qt.
-
-## Commands run
-
-The engine CTest program containing prefab/animation assertions passed.
+Animation supports step/linear/cubic curves, clips, looping events, typed bool/trigger/int/float
+controller parameters, ordered transitions, exit time and blending. `.fglanim` and
+`.fglcontroller` use stable asset GUIDs, bounded canonical readers and explicit clip GUID
+resolution. The Qt Animator panel exposes states, parameters, transitions, preview and timeline
+controls. The Animation Showcase participates in deterministic example replay and contains a real
+`AnimatedCharacter.fglprefab` plus a baked, linked animated hierarchy with a persisted particle
+rate override.
 
 ## Test results
 
-- Passed: prefab and animation runtime assertions.
-- Failed: 0 release CTest programs.
-- Skipped: Qt prefab/Animator/Timeline editing and integrated animated-game acceptance.
+Strict MinGW/GCC 13 tests cover prefab v1 migration/v2 round-trip, nested hierarchy, dependency
+cycles, overrides/unpack, malformed data, animation authoring round-trip/corruption, resolver
+de-duplication/missing clips and runtime evaluation. No filesystem path is guessed by the core
+serializers; editor/project code owns safe file selection and atomic writes.
 
-## Remaining work
-
-Full hierarchy serialization, nested-prefab dependency loading, added/removed component overrides,
-missing-prefab UX, Animator/Timeline editors, preview/scrub, and an integrated animated example are
-not complete.
+Dedicated Qt tests click instantiate/override/revert/apply/unpack, save Scene v2, reconstruct the
+panel and document, and repeat operations on the discovered instance. Engine tests cover canonical
+instance-state ordering, bounds/corruption, full override round-trip and a real Scene v2 component
+round-trip. Example integration validates and deterministically prepares the prefab GUID/type entry.

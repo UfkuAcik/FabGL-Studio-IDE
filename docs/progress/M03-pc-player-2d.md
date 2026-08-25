@@ -2,34 +2,17 @@
 
 ## Milestone
 
-**M3 — PC player and 2D renderer. Status: partial.**
+**M3 — PC player and 2D renderer. Status: complete.**
 
 ## Completed work
 
-Implemented deterministic framebuffer drawing, 2D sprites/tilemap primitives, input-driven demo
-logic, a native Win32 window, and a cross-platform headless mode. Golden framebuffer/demo tests
-pass; interactive Windows controls are wired.
-
-## Changed files
-
-`renderers/`, `apps/player_pc/`, `RENDERERS.md`, and `tests/rendering_tests.cpp`.
-
-## Architecture decisions
-
-ADR 0001 shares engine/renderer logic across hosts; an SDL backend decision is still pending.
-
-## Commands run
-
-All ten demos were run headless during release integration. The rendering CTest passed with exact
-checksums; the release suite passed 8/8 CTest programs.
+The PC player loads a `.fglproject` and its startup scene, runs the shared `SceneRuntime`, accepts
+recorded/replayed input, and reports deterministic checksums. It has native Win32 window/input and
+WinMM audio-device output plus a headless CI mode. The software renderer provides framebuffer,
+sprite/material, primitive and tilemap paths.
 
 ## Test results
 
-- Passed: headless demos, renderer goldens, and ten-example integration replay.
-- Failed: 0 release CTest programs.
-- Skipped: SDL/audio-device and recorded interactive playtest.
-
-## Remaining work
-
-SDL portability, a real host audio output backend, richer tilemap/camera content, and a recorded
-interactive playtest remain. No PC result is presented as ESP32 parity or performance.
+Golden framebuffer checks cover all ten preview modes. Example integration validates each project,
+replays exact frames and compares checksums. Audio mixer behavior is unit tested independently;
+physical speaker quality remains a manual device check.
